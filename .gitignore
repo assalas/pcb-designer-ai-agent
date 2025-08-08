@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+.env
+
+# Build
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+.pytest_cache/
+.cache/
