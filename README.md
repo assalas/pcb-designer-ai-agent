@@ -101,4 +101,4 @@ You will find `.kicad_mod` files in `build/` to drop into a KiCad library.
 ## License
 Dual-licensed: 
 - Non-commercial, open-source use granted under the Custom License in LICENSE.
-- Commercial/enterprise use requires prior written authorization from the author. Contact: set your email in LICENSE.
+- Commercial/enterprise use requires prior written authorization from the author. Contact: assalas@tutamail.com.
