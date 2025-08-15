@@ -73,13 +73,11 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         path = write_kicad_mod_soic(outdir, params)
     elif ftype == "qfn":
         assert all(v is not None for v in [pins, pitch, body_l, body_w, pad_l, pad_w]), "Missing QFN params"
-        from pcbai.steps.footprint_qfn_qfp import QfnParams, generate_qfn, KiCadModuleWriter
         params = QfnParams(name=name, pins=pins, pitch=pitch, body_l=body_l, body_w=body_w, pad_l=pad_l, pad_w=pad_w, ep_l=ep_l, ep_w=ep_w)
         content = generate_qfn(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     elif ftype == "qfp":
         assert all(v is not None for v in [pins, pitch, body_l, body_w, pad_l, pad_w]), "Missing QFP params"
-        from pcbai.steps.footprint_qfn_qfp import QfpParams, generate_qfp, KiCadModuleWriter
         params = QfpParams(name=name, pins=pins, pitch=pitch, body_l=body_l, body_w=body_w, pad_l=pad_l, pad_w=pad_w, gullwing_ext=gullwing_ext or 0.0)
         content = generate_qfp(params)
         path = KiCadModuleWriter(outdir).write(name, content)
