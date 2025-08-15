@@ -25,7 +25,8 @@ vision = [
   "pdfminer.six>=20221105",
   "camelot-py[cv]>=0.11.0",
   "opencv-python-headless>=4.8",
-  "pypdf>=4.2"
+  "pypdf>=4.2",
+  "pdfplumber>=0.10.0"
 ]
 eda = [
   "skidl>=0.1.0",
@@ -40,4 +41,4 @@ test = ["pytest>=8.2"]
 pcbai = "pcbai.pipeline.cli:main"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
