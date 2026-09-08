@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 import os
+from pcbai.steps.svg_renderer import SVGRenderer
 
 @dataclass
 class DipParams:
@@ -29,18 +30,31 @@ class KiCadModuleWriter:
 
 
 def generate_dip(params: DipParams) -> str:
+    lines, _ = _generate_dip_impl(params)
+    return "\n".join(lines) + "\n"
+
+def generate_dip_svg(params: DipParams) -> str:
+    _, renderer = _generate_dip_impl(params)
+    return renderer.render(f"DIP Footprint: {params.name}")
+
+def _generate_dip_impl(params: DipParams) -> tuple[List[str], SVGRenderer]:
     if params.pins % 2 != 0:
         raise ValueError("DIP pins must be even")
 
     pins_per_side = params.pins // 2
 
     lines: List[str] = []
+    renderer = SVGRenderer(scale=25.0)
     lines.append(f"(module {params.name} (layer F.Cu) (tedit 5B3079AF)")
     lines.append("  (attr through_hole)")
 
     # Body fab outline
     hw = params.body_w / 2.0
     hl = params.body_l / 2.0
+
+    renderer.draw_fab_rect(params.body_l, params.body_w)
+    renderer.draw_silk_dot(-hl + 0.6, -hw - 0.6)
+
     # DIP origin is typically pin 1, but lets stick to center origin for consistency with other generators
     # We will offset pads around the center.
 
@@ -77,5 +91,12 @@ def generate_dip(params: DipParams) -> str:
             f"(size {params.pad_dia:.3f} {params.pad_dia:.3f}) (drill {params.drill_dia:.3f}) (layers *.Cu *.Mask))"
         )
 
+        # Draw on SVG
+        renderer.draw_pad_circle(str(pad_num_top), x, top_y, params.pad_dia, params.drill_dia)
+        if shape_bot == "rect":
+            renderer.draw_pad_rect(str(pad_num_bot), x, bot_y, params.pad_dia, params.pad_dia, params.drill_dia)
+        else:
+            renderer.draw_pad_circle(str(pad_num_bot), x, bot_y, params.pad_dia, params.drill_dia)
+
     lines.append(")")
-    return "\n".join(lines) + "\n"
+    return lines, renderer

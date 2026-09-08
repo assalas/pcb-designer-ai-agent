@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 import os
+from pcbai.steps.svg_renderer import SVGRenderer
 
 @dataclass
 class BgaParams:
@@ -47,13 +48,26 @@ def _get_bga_row_letters(num_rows: int) -> List[str]:
 
 
 def generate_bga(params: BgaParams) -> str:
+    lines, _ = _generate_bga_impl(params)
+    return "\n".join(lines) + "\n"
+
+def generate_bga_svg(params: BgaParams) -> str:
+    _, renderer = _generate_bga_impl(params)
+    return renderer.render(f"BGA Footprint: {params.name}")
+
+def _generate_bga_impl(params: BgaParams) -> tuple[List[str], SVGRenderer]:
     lines: List[str] = []
+    renderer = SVGRenderer(scale=25.0)
     lines.append(f"(module {params.name} (layer F.Cu) (tedit 5B3079AF)")
     lines.append("  (attr smd)")
 
     # Body fab outline
     hw = params.body_w / 2.0
     hl = params.body_l / 2.0
+
+    renderer.draw_fab_rect(params.body_l, params.body_w)
+    renderer.draw_silk_dot(-hl + 0.6, -hw + 0.6)
+
     fab = [(-hl, -hw), (hl, -hw), (hl, hw), (-hl, hw), (-hl, -hw)]
     for i in range(4):
         x1, y1 = fab[i]
@@ -81,6 +95,7 @@ def generate_bga(params: BgaParams) -> str:
                 f"(layers F.Cu F.Paste F.Mask) (solder_mask_margin {params.mask_expansion:.3f}) "
                 f"(solder_paste_margin_ratio {params.paste_ratio - 1.0:.3f}))"
             )
+            renderer.draw_pad_circle(pad_name, x, y, params.pad_dia)
 
     lines.append(")")
-    return "\n".join(lines) + "\n"
+    return lines, renderer

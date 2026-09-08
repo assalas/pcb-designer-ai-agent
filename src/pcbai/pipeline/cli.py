@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import os
 import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from pcbai.core.logger import get_logger
+
+console = Console()
 from pcbai.steps.requirements_parser import parse_requirements
 from pcbai.steps.bom_generator import generate_bom
 from pcbai.steps.datasheet_fetcher import fetch_datasheet
@@ -67,9 +72,11 @@ def bom(description: str, outdir: str):
 # DIP / THT specific
 @click.option("--drill-dia", type=float)
 @click.option("--row-spacing", type=float)
-def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float, drill_dia: float, row_spacing: float):
-    """Generate a KiCad footprint (.kicad_mod)."""
+@click.option("--preview/--no-preview", default=True, help="Generate HTML/SVG visual preview alongside the footprint")
+def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float, drill_dia: float, row_spacing: float, preview: bool):
+    """Generate a KiCad footprint (.kicad_mod) and optionally a visual SVG preview."""
     os.makedirs(outdir, exist_ok=True)
+    html_path = None
     if ftype == "smd_rc":
         assert all(v is not None for v in [body_l, body_w, pad_l, pad_w, gap]), "Missing SMD RC params"
         params = SmdRcParams(name=name, body_l=body_l, body_w=body_w, pad_l=pad_l, pad_w=pad_w, gap=gap)
@@ -92,19 +99,34 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         path = KiCadModuleWriter(outdir).write(name, content)
     elif ftype == "bga":
         assert all(v is not None for v in [rows, cols, pitch, body_l, body_w, pad_dia]), "Missing BGA params"
-        from pcbai.steps.footprint_bga import BgaParams, generate_bga, KiCadModuleWriter
+        from pcbai.steps.footprint_bga import BgaParams, generate_bga, generate_bga_svg, KiCadModuleWriter
         params = BgaParams(name=name, rows=rows, cols=cols, pitch=pitch, body_l=body_l, body_w=body_w, pad_dia=pad_dia)
         content = generate_bga(params)
         path = KiCadModuleWriter(outdir).write(name, content)
+        if preview:
+            html_content = generate_bga_svg(params)
+            html_path = os.path.join(outdir, f"{name}_preview.html")
+            with open(html_path, "w") as f:
+                f.write(html_content)
     elif ftype == "dip":
         assert all(v is not None for v in [pins, pitch, row_spacing, body_l, body_w, pad_dia, drill_dia]), "Missing DIP params"
-        from pcbai.steps.footprint_dip import DipParams, generate_dip, KiCadModuleWriter
+        from pcbai.steps.footprint_dip import DipParams, generate_dip, generate_dip_svg, KiCadModuleWriter
         params = DipParams(name=name, pins=pins, pitch=pitch, row_spacing=row_spacing, body_l=body_l, body_w=body_w, pad_dia=pad_dia, drill_dia=drill_dia)
         content = generate_dip(params)
         path = KiCadModuleWriter(outdir).write(name, content)
+        if preview:
+            html_content = generate_dip_svg(params)
+            html_path = os.path.join(outdir, f"{name}_preview.html")
+            with open(html_path, "w") as f:
+                f.write(html_content)
     else:
         raise click.ClickException("Unsupported type")
-    click.echo(f"Wrote {path}")
+
+    table = Table(title="Footprint Generation Success", show_header=False, box=None)
+    table.add_row(f"[bold green]KiCad Module:[/bold green]", f"[cyan]{path}[/cyan]")
+    if html_path:
+        table.add_row(f"[bold green]Visual Preview:[/bold green]", f"[cyan]{html_path}[/cyan]")
+    console.print(Panel(table, expand=False, border_style="green"))
 
 
 @main.command()
@@ -127,7 +149,18 @@ def extract_package(pdf: str, out_json: str, use_vision: bool, llm_model: str):
 
     from pcbai.steps.datasheet_package_extractor import save_guess_json
     save_guess_json(guess, out_json)
-    click.echo(f"Saved package guess to {out_json}")
+
+    table = Table(title="Datasheet Extraction Results", show_header=True, header_style="bold magenta")
+    table.add_column("Parameter")
+    table.add_column("Value", style="cyan")
+
+    table.add_row("Package Type", str(guess.pkg_type).upper())
+    table.add_row("Pins", str(guess.pins))
+    table.add_row("Pitch", f"{guess.pitch} mm" if guess.pitch else "None")
+    table.add_row("Body (L x W)", f"{guess.body_l} x {guess.body_w} mm" if guess.body_l and guess.body_w else "None")
+
+    console.print(Panel(table, title="[bold green]Success[/bold green]", expand=False))
+    console.print(f"📄 Saved raw JSON to: [bold]{out_json}[/bold]")
 
 
 @main.command()

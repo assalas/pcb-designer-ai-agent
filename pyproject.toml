@@ -16,6 +16,7 @@ dependencies = [
   "requests>=2.31",
   "python-dotenv>=1.0",
   "pypdf>=4.2",
+  "rich>=13.0",
 ]
 
 [project.optional-dependencies]
