@@ -7,8 +7,18 @@ from typing import Dict, Optional, Any
 
 try:
     from pdfminer.high_level import extract_text
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     extract_text = None  # type: ignore
+
+def _extract_text_fallback(pdf_path: str) -> Optional[str]:
+    """Fallback text extractor using pypdf if pdfminer is not installed."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(pdf_path)
+        text_pages = [page.extract_text() for page in reader.pages if page.extract_text()]
+        return "\n".join(text_pages)
+    except ImportError:
+        return None
 
 
 @dataclass
@@ -68,11 +78,15 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
 
     Returns a best-effort guess for QFN/QFP packages. Use human-in-the-loop to confirm.
     """
-    if extract_text is None:
-        return PackageGuess(pkg_type="unknown")
+    if extract_text is not None:
+        text = extract_text(pdf_path)
+    else:
+        text = _extract_text_fallback(pdf_path)
 
-    text = extract_text(pdf_path)
-    if not text:
+    if text is None:
+        raise ImportError("A PDF parser is required. Run `pip install pypdf` or `pip install pdfminer.six`.")
+
+    if not text.strip():
         return PackageGuess(pkg_type="unknown")
 
     # Normalize

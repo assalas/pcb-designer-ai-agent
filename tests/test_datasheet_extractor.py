@@ -39,3 +39,12 @@ def test_extract_qfn_unknown():
         assert guess.pkg_type == "qfn"
         assert guess.pins == 32
         assert guess.pitch == 0.5
+
+def test_extract_fallback_pypdf():
+    mock_text = "Standard 8-pin PDIP package. Pitch: 2.54 mm."
+    with mock.patch('pcbai.steps.datasheet_package_extractor.extract_text', None):
+        with mock.patch('pcbai.steps.datasheet_package_extractor._extract_text_fallback', return_value=mock_text):
+            guess = extract_package_params_from_pdf("dummy.pdf")
+            assert guess.pkg_type == "dip"
+            assert guess.pins == 8
+            assert guess.pitch == 2.54
