@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover
 
 @dataclass
 class PackageGuess:
-    pkg_type: str  # qfn | qfp | soic | unknown
+    pkg_type: str  # qfn | qfp | soic | bga | unknown
     pins: Optional[int] = None
     pitch: Optional[float] = None  # mm
     body_l: Optional[float] = None
@@ -83,11 +83,15 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
         pkg = "qfn"
     elif re.search(r"\bQFP\b|\bTQFP\b|\bLQFP\b", t, re.IGNORECASE):
         pkg = "qfp"
+    elif re.search(r"\bSOIC\b|\bSOP\b|\bTSSOP\b|\bSSOP\b", t, re.IGNORECASE):
+        pkg = "soic"
+    elif re.search(r"\bBGA\b|\bFBGA\b|\bTFBGA\b|\bWLCSP\b", t, re.IGNORECASE):
+        pkg = "bga"
     else:
         pkg = "unknown"
 
     # Pins
-    pins = _find_first_int(r"\b(\d{10,3}|\d{2})\s*(?:pins|pin)\b", t)
+    pins = _find_first_int(r"\b(\d+)\s*(?:-pin|pin|pins|ball|balls|leads|lead)\b", t)
 
     # Pitch
     pitch = _find_first_float(r"pitch\s*[:=]?\s*" + UNIT_RE, t)
@@ -99,8 +103,8 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
     body_w = _find_first_float(r"body (?:width|W)\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"package width\s*[:=]?\s*" + UNIT_RE, t)
 
     # Pad (terminal) length/width
-    pad_l = _find_first_float(r"terminal length\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead length\s*[:=]?\s*" + UNIT_RE, t)
-    pad_w = _find_first_float(r"terminal width\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead width\s*[:=]?\s*" + UNIT_RE, t)
+    pad_l = _find_first_float(r"terminal length\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead length\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"ball diameter\s*(?:is\s*)?[:=]?\s*" + UNIT_RE, t)
+    pad_w = _find_first_float(r"terminal width\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead width\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"ball diameter\s*(?:is\s*)?[:=]?\s*" + UNIT_RE, t)
 
     # Exposed pad for QFN
     ep_l = _find_first_float(r"exposed pad (?:length|L)\s*[:=]?\s*" + UNIT_RE, t)
