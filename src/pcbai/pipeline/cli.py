@@ -41,7 +41,7 @@ def bom(description: str, outdir: str):
 
 
 @main.command()
-@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp"]), required=True)
+@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp", "bga"]), required=True)
 @click.option("--name", required=True)
 @click.option("--out", "outdir", type=click.Path(), default="build")
 # Common
@@ -60,7 +60,11 @@ def bom(description: str, outdir: str):
 @click.option("--ep-w", type=float)
 # QFP specific
 @click.option("--gullwing-ext", type=float)
-def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float):
+# BGA specific
+@click.option("--rows", type=int)
+@click.option("--cols", type=int)
+@click.option("--pad-dia", type=float)
+def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float):
     """Generate a KiCad footprint (.kicad_mod)."""
     os.makedirs(outdir, exist_ok=True)
     if ftype == "smd_rc":
@@ -82,6 +86,12 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         from pcbai.steps.footprint_qfn_qfp import QfpParams, generate_qfp, KiCadModuleWriter
         params = QfpParams(name=name, pins=pins, pitch=pitch, body_l=body_l, body_w=body_w, pad_l=pad_l, pad_w=pad_w, gullwing_ext=gullwing_ext or 0.0)
         content = generate_qfp(params)
+        path = KiCadModuleWriter(outdir).write(name, content)
+    elif ftype == "bga":
+        assert all(v is not None for v in [rows, cols, pitch, body_l, body_w, pad_dia]), "Missing BGA params"
+        from pcbai.steps.footprint_bga import BgaParams, generate_bga, KiCadModuleWriter
+        params = BgaParams(name=name, rows=rows, cols=cols, pitch=pitch, body_l=body_l, body_w=body_w, pad_dia=pad_dia)
+        content = generate_bga(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     else:
         raise click.ClickException("Unsupported type")
