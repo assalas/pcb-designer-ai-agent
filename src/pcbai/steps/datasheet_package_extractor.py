@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover
 
 @dataclass
 class PackageGuess:
-    pkg_type: str  # qfn | qfp | soic | bga | unknown
+    pkg_type: str  # qfn | qfp | soic | bga | dip | unknown
     pins: Optional[int] = None
     pitch: Optional[float] = None  # mm
     body_l: Optional[float] = None
@@ -87,6 +87,8 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
         pkg = "soic"
     elif re.search(r"\bBGA\b|\bFBGA\b|\bTFBGA\b|\bWLCSP\b", t, re.IGNORECASE):
         pkg = "bga"
+    elif re.search(r"\bDIP\b|\bPDIP\b|\bCDIP\b", t, re.IGNORECASE):
+        pkg = "dip"
     else:
         pkg = "unknown"
 

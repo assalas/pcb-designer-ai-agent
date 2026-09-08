@@ -41,7 +41,7 @@ def bom(description: str, outdir: str):
 
 
 @main.command()
-@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp", "bga"]), required=True)
+@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp", "bga", "dip"]), required=True)
 @click.option("--name", required=True)
 @click.option("--out", "outdir", type=click.Path(), default="build")
 # Common
@@ -64,7 +64,10 @@ def bom(description: str, outdir: str):
 @click.option("--rows", type=int)
 @click.option("--cols", type=int)
 @click.option("--pad-dia", type=float)
-def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float):
+# DIP / THT specific
+@click.option("--drill-dia", type=float)
+@click.option("--row-spacing", type=float)
+def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float, drill_dia: float, row_spacing: float):
     """Generate a KiCad footprint (.kicad_mod)."""
     os.makedirs(outdir, exist_ok=True)
     if ftype == "smd_rc":
@@ -92,6 +95,12 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         from pcbai.steps.footprint_bga import BgaParams, generate_bga, KiCadModuleWriter
         params = BgaParams(name=name, rows=rows, cols=cols, pitch=pitch, body_l=body_l, body_w=body_w, pad_dia=pad_dia)
         content = generate_bga(params)
+        path = KiCadModuleWriter(outdir).write(name, content)
+    elif ftype == "dip":
+        assert all(v is not None for v in [pins, pitch, row_spacing, body_l, body_w, pad_dia, drill_dia]), "Missing DIP params"
+        from pcbai.steps.footprint_dip import DipParams, generate_dip, KiCadModuleWriter
+        params = DipParams(name=name, pins=pins, pitch=pitch, row_spacing=row_spacing, body_l=body_l, body_w=body_w, pad_dia=pad_dia, drill_dia=drill_dia)
+        content = generate_dip(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     else:
         raise click.ClickException("Unsupported type")

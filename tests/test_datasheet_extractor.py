@@ -23,6 +23,14 @@ def test_extract_bga():
         assert guess.body_l == 10.0
         assert guess.body_w == 10.0
 
+def test_extract_dip():
+    mock_text = "Standard 8-pin PDIP package. Pitch: 2.54 mm."
+    with mock.patch('pcbai.steps.datasheet_package_extractor.extract_text', return_value=mock_text):
+        guess = extract_package_params_from_pdf("dummy.pdf")
+        assert guess.pkg_type == "dip"
+        assert guess.pins == 8
+        assert guess.pitch == 2.54
+
 def test_extract_qfn_unknown():
     # existing functionality check
     mock_text = "32-pin QFN package, pitch: 0.5 mm"
