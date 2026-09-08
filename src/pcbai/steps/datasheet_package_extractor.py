@@ -35,7 +35,7 @@ class PackageGuess:
 
 
 UNIT_RE = r"(?P<val>\d+(?:\.\d+)?)\s*(?P<unit>mm|mil|in|inch|inches)"
-
+UNIT_RE_UNNAMED = r"(\d+(?:\.\d+)?)\s*(mm|mil|in|inch|inches)"
 
 def _to_mm(val: float, unit: str) -> float:
     unit = unit.lower()
@@ -55,6 +55,14 @@ def _find_first_float(pattern: str, text: str) -> Optional[float]:
     gd = m.groupdict()
     if "val" in gd and "unit" in gd:
         return _to_mm(float(gd["val"]), gd["unit"])  # type: ignore
+
+    # Handle unnamed capture groups specifically for UNIT_RE_UNNAMED (val, unit)
+    if m.lastindex and m.lastindex >= 2:
+        try:
+            return _to_mm(float(m.group(1)), m.group(2))
+        except Exception:
+            pass
+
     if m.group(1):
         try:
             return float(m.group(1))
@@ -113,6 +121,8 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
     pitch = _find_first_float(r"pitch\s*[:=]?\s*" + UNIT_RE, t)
     if pitch is None:
         pitch = _find_first_float(r"lead pitch\s*[:=]?\s*" + UNIT_RE, t)
+    if pitch is None:
+        pitch = _find_first_float(UNIT_RE_UNNAMED + r"\s*(?:lead\s+)?pitch", t)
 
     # Body size
     body_l = _find_first_float(r"body (?:length|L)\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"package length\s*[:=]?\s*" + UNIT_RE, t)
