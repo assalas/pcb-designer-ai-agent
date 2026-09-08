@@ -7,13 +7,23 @@ from typing import Dict, Optional, Any
 
 try:
     from pdfminer.high_level import extract_text
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     extract_text = None  # type: ignore
+
+def _extract_text_fallback(pdf_path: str) -> Optional[str]:
+    """Fallback text extractor using pypdf if pdfminer is not installed."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(pdf_path)
+        text_pages = [page.extract_text() for page in reader.pages if page.extract_text()]
+        return "\n".join(text_pages)
+    except ImportError:
+        return None
 
 
 @dataclass
 class PackageGuess:
-    pkg_type: str  # qfn | qfp | soic | unknown
+    pkg_type: str  # qfn | qfp | soic | bga | dip | unknown
     pins: Optional[int] = None
     pitch: Optional[float] = None  # mm
     body_l: Optional[float] = None
@@ -25,7 +35,7 @@ class PackageGuess:
 
 
 UNIT_RE = r"(?P<val>\d+(?:\.\d+)?)\s*(?P<unit>mm|mil|in|inch|inches)"
-
+UNIT_RE_UNNAMED = r"(\d+(?:\.\d+)?)\s*(mm|mil|in|inch|inches)"
 
 def _to_mm(val: float, unit: str) -> float:
     unit = unit.lower()
@@ -45,6 +55,14 @@ def _find_first_float(pattern: str, text: str) -> Optional[float]:
     gd = m.groupdict()
     if "val" in gd and "unit" in gd:
         return _to_mm(float(gd["val"]), gd["unit"])  # type: ignore
+
+    # Handle unnamed capture groups specifically for UNIT_RE_UNNAMED (val, unit)
+    if m.lastindex and m.lastindex >= 2:
+        try:
+            return _to_mm(float(m.group(1)), m.group(2))
+        except Exception:
+            pass
+
     if m.group(1):
         try:
             return float(m.group(1))
@@ -68,11 +86,15 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
 
     Returns a best-effort guess for QFN/QFP packages. Use human-in-the-loop to confirm.
     """
-    if extract_text is None:
-        return PackageGuess(pkg_type="unknown")
+    if extract_text is not None:
+        text = extract_text(pdf_path)
+    else:
+        text = _extract_text_fallback(pdf_path)
 
-    text = extract_text(pdf_path)
-    if not text:
+    if text is None:
+        raise ImportError("A PDF parser is required. Run `pip install pypdf` or `pip install pdfminer.six`.")
+
+    if not text.strip():
         return PackageGuess(pkg_type="unknown")
 
     # Normalize
@@ -83,24 +105,32 @@ def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
         pkg = "qfn"
     elif re.search(r"\bQFP\b|\bTQFP\b|\bLQFP\b", t, re.IGNORECASE):
         pkg = "qfp"
+    elif re.search(r"\bSOIC\b|\bSOP\b|\bTSSOP\b|\bSSOP\b", t, re.IGNORECASE):
+        pkg = "soic"
+    elif re.search(r"\bBGA\b|\bFBGA\b|\bTFBGA\b|\bWLCSP\b", t, re.IGNORECASE):
+        pkg = "bga"
+    elif re.search(r"\bDIP\b|\bPDIP\b|\bCDIP\b", t, re.IGNORECASE):
+        pkg = "dip"
     else:
         pkg = "unknown"
 
     # Pins
-    pins = _find_first_int(r"\b(\d{10,3}|\d{2})\s*(?:pins|pin)\b", t)
+    pins = _find_first_int(r"\b(\d+)\s*(?:-pin|pin|pins|ball|balls|leads|lead)\b", t)
 
     # Pitch
     pitch = _find_first_float(r"pitch\s*[:=]?\s*" + UNIT_RE, t)
     if pitch is None:
         pitch = _find_first_float(r"lead pitch\s*[:=]?\s*" + UNIT_RE, t)
+    if pitch is None:
+        pitch = _find_first_float(UNIT_RE_UNNAMED + r"\s*(?:lead\s+)?pitch", t)
 
     # Body size
     body_l = _find_first_float(r"body (?:length|L)\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"package length\s*[:=]?\s*" + UNIT_RE, t)
     body_w = _find_first_float(r"body (?:width|W)\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"package width\s*[:=]?\s*" + UNIT_RE, t)
 
     # Pad (terminal) length/width
-    pad_l = _find_first_float(r"terminal length\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead length\s*[:=]?\s*" + UNIT_RE, t)
-    pad_w = _find_first_float(r"terminal width\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead width\s*[:=]?\s*" + UNIT_RE, t)
+    pad_l = _find_first_float(r"terminal length\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead length\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"ball diameter\s*(?:is\s*)?[:=]?\s*" + UNIT_RE, t)
+    pad_w = _find_first_float(r"terminal width\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"lead width\s*[:=]?\s*" + UNIT_RE, t) or _find_first_float(r"ball diameter\s*(?:is\s*)?[:=]?\s*" + UNIT_RE, t)
 
     # Exposed pad for QFN
     ep_l = _find_first_float(r"exposed pad (?:length|L)\s*[:=]?\s*" + UNIT_RE, t)

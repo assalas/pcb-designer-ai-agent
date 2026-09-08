@@ -43,6 +43,7 @@ pcb-designer-ai-agent/
 │  │  ├─ bom_generator.py
 │  │  ├─ datasheet_fetcher.py
 │  │  ├─ footprint_generator.py   <-- working generator for SMD R/C and SOIC
+│  │  ├─ footprint_bga.py         <-- BGA support
 │  │  ├─ schematic_synthesizer.py
 │  │  ├─ pcb_router.py
 │  │  └─ gerber_exporter.py
@@ -75,6 +76,13 @@ pcbai footprint --type soic --name SOIC-14_3.9x8.7mm_P1.27mm \
   --pins 14 --pitch 1.27 --body-l 8.7 --body-w 3.9 --pad-l 1.5 --pad-w 0.6 --row-offset 2.3 --out build/
 ```
 
+Generate a BGA footprint:
+
+```bash
+pcbai footprint --type bga --name BGA-64_8x8 --rows 8 --cols 8 --pitch 1.0 \
+  --body-l 10 --body-w 10 --pad-dia 0.5 --out build/
+```
+
 You will find `.kicad_mod` files in `build/` to drop into a KiCad library.
 
 ## Vision + Datasheet extraction
@@ -94,7 +102,7 @@ You will find `.kicad_mod` files in `build/` to drop into a KiCad library.
 ## Contributing
 - PRs welcome. Focus areas:
   - Datasheet parsers and CV feature extractors
-  - More package generators (QFN/QFP/BGA)
+  - More package generators
   - SKiDL schematic templates
   - EDA tool adapters
 
