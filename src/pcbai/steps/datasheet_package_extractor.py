@@ -81,6 +81,80 @@ def _find_first_int(pattern: str, text: str) -> Optional[int]:
         return None
 
 
+def extract_package_params_from_pdf_vision(pdf_path: str, provider: Any, model: str = "llava") -> PackageGuess:
+    """Uses LLM Vision (e.g. Ollama llava) to extract footprint params from PDF pages.
+    Requires pymupdf to be installed.
+    """
+    try:
+        import pymupdf
+    except ImportError:
+        raise ImportError("pymupdf is required for vision extraction. Run `pip install pymupdf`")
+
+    import base64
+
+    doc = pymupdf.open(pdf_path)
+    # We only process the first few and last few pages to save context, as packaging is usually at the end.
+    # For a robust solution, you might do an index search, but we will grab up to 4 pages total.
+    total = len(doc)
+    pages_to_extract = []
+    if total <= 4:
+        pages_to_extract = list(range(total))
+    else:
+        pages_to_extract = [0, 1, total - 2, total - 1]
+
+    images_b64 = []
+    for p_num in pages_to_extract:
+        page = doc[p_num]
+        pix = page.get_pixmap(dpi=150) # Keep DPI reasonable to avoid huge payloads
+        png_data = pix.tobytes("png")
+        b64_str = base64.b64encode(png_data).decode("utf-8")
+        images_b64.append(b64_str)
+
+    prompt = (
+        "You are an expert electronics engineer. Review the provided datasheet pages (which include packaging info). "
+        "Extract the footprint parameters and reply ONLY with a valid JSON object matching this schema. Do not include markdown code blocks or explanations.\n"
+        "{\n"
+        '  "pkg_type": "string (one of: qfn, qfp, soic, bga, dip, unknown)",\n'
+        '  "pins": "integer (number of pins, e.g. 14)",\n'
+        '  "pitch": "float (in mm, e.g. 1.27)",\n'
+        '  "body_l": "float (in mm)",\n'
+        '  "body_w": "float (in mm)",\n'
+        '  "pad_l": "float (in mm, terminal length or ball diameter)",\n'
+        '  "pad_w": "float (in mm, terminal width or ball diameter)",\n'
+        '  "ep_l": "float (in mm, exposed pad length, optional)",\n'
+        '  "ep_w": "float (in mm, exposed pad width, optional)"\n'
+        "}\n"
+    )
+
+    response_text = provider.complete(prompt=prompt, images=images_b64, model=model)
+
+    # Try to parse JSON from the response. Strip out markdown blocks if the LLM ignored instructions.
+    clean_text = response_text.strip()
+    if clean_text.startswith("```json"):
+        clean_text = clean_text[7:]
+    if clean_text.startswith("```"):
+        clean_text = clean_text[3:]
+    if clean_text.endswith("```"):
+        clean_text = clean_text[:-3]
+
+    try:
+        data = json.loads(clean_text)
+        return PackageGuess(
+            pkg_type=data.get("pkg_type", "unknown"),
+            pins=data.get("pins"),
+            pitch=data.get("pitch"),
+            body_l=data.get("body_l"),
+            body_w=data.get("body_w"),
+            pad_l=data.get("pad_l"),
+            pad_w=data.get("pad_w"),
+            ep_l=data.get("ep_l"),
+            ep_w=data.get("ep_w")
+        )
+    except json.JSONDecodeError:
+        print(f"Failed to parse JSON from LLM response:\n{response_text}")
+        return PackageGuess(pkg_type="unknown")
+
+
 def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
     """Heuristic extractor: searches textual datasheets for package tables/notes.
 

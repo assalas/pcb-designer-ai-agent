@@ -110,11 +110,21 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
 @main.command()
 @click.argument("pdf", type=click.Path(exists=True))
 @click.option("--out", "out_json", type=click.Path(), default="build/package_guess.json")
-def extract_package(pdf: str, out_json: str):
-    """Extract package parameters from a datasheet PDF (heuristic)."""
+@click.option("--use-vision", is_flag=True, help="Use LLM vision processing (e.g. Ollama llava) for extraction")
+@click.option("--llm-model", default="llava", help="The LLM model to use if --use-vision is set")
+def extract_package(pdf: str, out_json: str, use_vision: bool, llm_model: str):
+    """Extract package parameters from a datasheet PDF."""
     os.makedirs(os.path.dirname(out_json), exist_ok=True)
-    from pcbai.steps.datasheet_package_extractor import extract_package_params_from_pdf, save_guess_json
-    guess = extract_package_params_from_pdf(pdf)
+
+    if use_vision:
+        from pcbai.steps.datasheet_package_extractor import extract_package_params_from_pdf_vision
+        from pcbai.llm.providers.ollama import OllamaProvider
+        provider = OllamaProvider(default_model=llm_model)
+        guess = extract_package_params_from_pdf_vision(pdf, provider, model=llm_model)
+    else:
+        from pcbai.steps.datasheet_package_extractor import extract_package_params_from_pdf
+        guess = extract_package_params_from_pdf(pdf)
+
     from pcbai.steps.datasheet_package_extractor import save_guess_json
     save_guess_json(guess, out_json)
     click.echo(f"Saved package guess to {out_json}")
