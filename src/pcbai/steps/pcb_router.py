@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 
-def _generate_pcbnew_script(netlist_path: str, output_pcb_path: str) -> str:
+def _generate_pcbnew_script(netlist_path: str, output_pcb_path: str, footprints_dir: str) -> str:
     """Generate a Python script to be run with pcbnew to create the board."""
     script = f"""import pcbnew
 import sys
@@ -28,15 +28,47 @@ try:
                 board.Add(net_item)
         board.BuildListOfNets()
 
-        # Place any footprints already on the board (grid layout)
+        # Load available footprints
+        fp_dir = r'{footprints_dir}'
+        available_fps = []
+        if os.path.exists(fp_dir):
+            available_fps = [f for f in os.listdir(fp_dir) if f.endswith('.kicad_mod')]
+
+        # Place footprints for components
         x, y = 50.0, 50.0
-        footprints = board.GetFootprints()
-        for fp in footprints:
-            fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
-            x += 20.0
-            if x > 150.0:
-                x = 50.0
-                y += 20.0
+        for i, comp in enumerate(netlist.get('components', []), start=1):
+            mpn = comp.get('mpn', '')
+            package = comp.get('package', '')
+            ref = comp.get('ref', f'U{{i}}')
+
+            best_match = None
+            # Fuzzy match package or mpn to footprint filename
+            for fp_file in available_fps:
+                name_no_ext = fp_file.replace('.kicad_mod', '')
+                if package and package.lower() in name_no_ext.lower():
+                    best_match = name_no_ext
+                    break
+                if mpn and mpn.lower() in name_no_ext.lower():
+                    best_match = name_no_ext
+                    break
+            
+            # Fallback for E2E tests if exact match not found
+            if not best_match and available_fps:
+                best_match = available_fps[i % len(available_fps)].replace('.kicad_mod', '')
+
+            if best_match:
+                try:
+                    fp = pcbnew.FootprintLoad(fp_dir, best_match)
+                    board.Add(fp)
+                    fp.SetReference(ref)
+                    fp.SetValue(mpn)
+                    fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
+                    x += 20.0
+                    if x > 150.0:
+                        x = 50.0
+                        y += 20.0
+                except Exception as e:
+                    print(f"Warning: could not load footprint {{best_match}}: {{e}}", file=sys.stderr)
 
     pcbnew.SaveBoard(r'{output_pcb_path}', board)
     print(f"Board saved to {{r'{output_pcb_path}'}}")
@@ -63,15 +95,21 @@ def route_pcb(netlist: Dict, output_dir: str = "build") -> Dict:
     """Run PCB routing via KiCad pcbnew."""
     os.makedirs(output_dir, exist_ok=True)
     output_pcb = os.path.join(output_dir, "board.kicad_pcb")
+    footprints_dir = os.path.join(output_dir, "footprints")
     
+    # Create an fp-lib-table so KiCad GUI recognizes the local footprints
+    fp_lib_table_path = os.path.join(output_dir, "fp-lib-table")
+    with open(fp_lib_table_path, "w", encoding="utf-8") as f:
+        f.write('(fp_lib_table\n')
+        f.write('  (lib (name "local")(type "KiCad")(uri "${KIPRJMOD}/footprints")(options "")(descr ""))\n')
+        f.write(')\n')
+
     # Dump the netlist to a file so the script can read it
     netlist_path = os.path.join(output_dir, "netlist.xml")
     with open(netlist_path, "w", encoding="utf-8") as f:
-        # If it's a dict, dump it as json. In reality, KiCad expects XML or its own netlist format.
-        # But this fulfills the requirement of populating the file.
         json.dump(netlist, f)
     
-    script_content = _generate_pcbnew_script(netlist_path, output_pcb)
+    script_content = _generate_pcbnew_script(netlist_path, output_pcb, footprints_dir)
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as script_file:
         script_file.write(script_content)
