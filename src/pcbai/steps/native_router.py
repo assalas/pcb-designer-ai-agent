@@ -31,31 +31,30 @@ def autoroute_board(board: pcbnew.BOARD):
     Finds all pads belonging to the same net and connects them with copper tracks.
     This is a naive Manhattan router (L-shapes) acting as a scaffold for a future A* solver.
     """
-    nets = board.GetNetsByName()
-    
-    for net_name, net_info in nets.items():
-        if not net_name: 
-            continue
-            
-        # 1. Collect all pads on this net
-        pads = []
-        for fp in board.GetFootprints():
-            for pad in fp.Pads():
-                if pad.GetNetname() == net_name:
-                    pads.append(pad)
-                    
+    # Group pads by net code
+    nets_pads = {}
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            net_code = pad.GetNetCode()
+            if net_code > 0:
+                nets_pads.setdefault(net_code, []).append(pad)
+                
+    for net_code, pads in nets_pads.items():
         if len(pads) < 2:
             continue
             
-        # 2. Determine trace width based on net name (Power vs Signal)
+        net_info = board.FindNet(net_code)
+        if not net_info: continue
+        net_name = net_info.GetNetname()
+        
+        # Determine trace width based on net name (Power vs Signal)
         is_power = any(pwr in net_name.upper() for pwr in ["VCC", "VDD", "VIN", "5V", "3V3", "GND"])
         trace_width = pcbnew.FromMM(0.5) if is_power else pcbnew.FromMM(0.25)
             
-        # 3. Connect the pads in a simple daisy chain
-        # A real router would use a Minimum Spanning Tree (MST) here
+        # Connect the pads in a simple daisy chain
         for i in range(len(pads) - 1):
             start_pos = pads[i].GetPosition()
             end_pos = pads[i+1].GetPosition()
             
-            route_manhattan(board, start_pos, end_pos, net_info.GetNetCode(), trace_width)
+            route_manhattan(board, start_pos, end_pos, net_code, trace_width)
 
