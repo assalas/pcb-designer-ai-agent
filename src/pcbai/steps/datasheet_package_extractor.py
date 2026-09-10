@@ -81,18 +81,109 @@ def _find_first_int(pattern: str, text: str) -> Optional[int]:
         return None
 
 
-def extract_package_params_from_pdf(pdf_path: str) -> PackageGuess:
+import os
+import base64
+import requests
+
+def extract_with_vision(pdf_path: str, provider: str) -> Optional[PackageGuess]:
+    """Fallback to LLM Vision extraction when an API is available."""
+    try:
+        from pdf2image import convert_from_path
+        images = convert_from_path(pdf_path)
+        if not images:
+            return None
+
+        # We'll just look at the first page for the example, or iterate through.
+        # Save to temp bytes
+        import io
+        img_byte_arr = io.BytesIO()
+        images[0].save(img_byte_arr, format='PNG')
+        base64_image = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
+
+        if provider.lower() == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                return None
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+            payload = {
+                "model": "gpt-4o",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Extract package dimensions (type, pins, pitch, body_l, body_w, pad_l, pad_w) from this datasheet as JSON."},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
+                        ]
+                    }
+                ],
+                "max_tokens": 300
+            }
+            response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                content = response.json()['choices'][0]['message']['content']
+                # Crude JSON extraction for demonstration
+                import json
+                try:
+                    start = content.find('{')
+                    end = content.rfind('}') + 1
+                    data = json.loads(content[start:end])
+                    return PackageGuess(
+                        pkg_type=data.get('pkg_type', 'unknown'),
+                        pins=data.get('pins'),
+                        pitch=data.get('pitch'),
+                        body_l=data.get('body_l'),
+                        body_w=data.get('body_w'),
+                        pad_l=data.get('pad_l'),
+                        pad_w=data.get('pad_w')
+                    )
+                except json.JSONDecodeError:
+                    return None
+    except Exception as e:
+        print(f"Vision extraction failed: {e}")
+    return None
+
+
+def extract_with_ocr(pdf_path: str) -> Optional[str]:
+    """Fallback to OCR using pytesseract or camelot if standard text extraction fails."""
+    try:
+        import pytesseract
+        from pdf2image import convert_from_path
+        images = convert_from_path(pdf_path)
+        text = ""
+        for img in images:
+            text += pytesseract.image_to_string(img)
+        return text
+    except ImportError:
+        return None
+    except Exception:
+        return None
+
+
+def extract_package_params_from_pdf(pdf_path: str, vision_provider: Optional[str] = None) -> PackageGuess:
     """Heuristic extractor: searches textual datasheets for package tables/notes.
 
-    Returns a best-effort guess for QFN/QFP packages. Use human-in-the-loop to confirm.
+    Returns a best-effort guess for packages. Use human-in-the-loop to confirm.
     """
+    if vision_provider:
+        vision_guess = extract_with_vision(pdf_path, vision_provider)
+        if vision_guess:
+            return vision_guess
+
+    text = None
     if extract_text is not None:
         text = extract_text(pdf_path)
     else:
         text = _extract_text_fallback(pdf_path)
 
+    if text is None or not text.strip():
+        # Try OCR as fallback
+        text = extract_with_ocr(pdf_path)
+
     if text is None:
-        raise ImportError("A PDF parser is required. Run `pip install pypdf` or `pip install pdfminer.six`.")
+        raise ImportError("A PDF parser is required. Run `pip install pypdf`, `pdfminer.six` or configure OCR (`pytesseract`).")
 
     if not text.strip():
         return PackageGuess(pkg_type="unknown")

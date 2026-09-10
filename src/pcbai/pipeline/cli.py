@@ -41,7 +41,7 @@ def bom(description: str, outdir: str):
 
 
 @main.command()
-@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp", "bga", "dip"]), required=True)
+@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp", "bga", "dip", "usbc", "header", "custom"]), required=True)
 @click.option("--name", required=True)
 @click.option("--out", "outdir", type=click.Path(), default="build")
 # Common
@@ -67,7 +67,9 @@ def bom(description: str, outdir: str):
 # DIP / THT specific
 @click.option("--drill-dia", type=float)
 @click.option("--row-spacing", type=float)
-def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float, drill_dia: float, row_spacing: float):
+# Custom specific
+@click.option("--coordinates", type=str)
+def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float, drill_dia: float, row_spacing: float, coordinates: str):
     """Generate a KiCad footprint (.kicad_mod)."""
     os.makedirs(outdir, exist_ok=True)
     if ftype == "smd_rc":
@@ -101,6 +103,26 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         from pcbai.steps.footprint_dip import DipParams, generate_dip, KiCadModuleWriter
         params = DipParams(name=name, pins=pins, pitch=pitch, row_spacing=row_spacing, body_l=body_l, body_w=body_w, pad_dia=pad_dia, drill_dia=drill_dia)
         content = generate_dip(params)
+        path = KiCadModuleWriter(outdir).write(name, content)
+    elif ftype == "usbc":
+        from pcbai.steps.footprint_usbc import UsbcParams, generate_usbc
+        from pcbai.steps.footprint_qfn_qfp import KiCadModuleWriter
+        params = UsbcParams(name=name)
+        content = generate_usbc(params)
+        path = KiCadModuleWriter(outdir).write(name, content)
+    elif ftype == "header":
+        assert all(v is not None for v in [pins, pitch, pad_dia, drill_dia]), "Missing Header params"
+        from pcbai.steps.footprint_header import HeaderParams, generate_header
+        from pcbai.steps.footprint_qfn_qfp import KiCadModuleWriter
+        params = HeaderParams(name=name, pins=pins, pitch=pitch, pad_dia=pad_dia, drill_dia=drill_dia)
+        content = generate_header(params)
+        path = KiCadModuleWriter(outdir).write(name, content)
+    elif ftype == "custom":
+        assert coordinates is not None, "Missing coordinates for custom footprint"
+        from pcbai.steps.footprint_custom import CustomParams, generate_custom
+        from pcbai.steps.footprint_qfn_qfp import KiCadModuleWriter
+        params = CustomParams(name=name, coordinates=coordinates)
+        content = generate_custom(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     else:
         raise click.ClickException("Unsupported type")
