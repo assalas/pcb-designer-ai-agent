@@ -159,9 +159,10 @@ Produces `build/netlist.txt` (SKiDL netlist), then use `pcb_router` to generate 
 
 1. Create a new `BOARD`
 2. Register nets from the netlist via `NETINFO_ITEM` + `board.Add()`
-3. Place footprints in a grid
-4. Save a valid `.kicad_pcb` file
-5. Attempt DSN export for Freerouting
+3. **Instantiate and place footprints**: Automatically load `.kicad_mod` files from the `footprints/` directory, assign component MPNs/References, and place them onto the board canvas.
+4. **Library Management**: Automatically generate a project-level `fp-lib-table` so KiCad recognizes the local footprints immediately when opened.
+5. Save a valid `.kicad_pcb` file
+6. Attempt DSN export for Freerouting
 
 ```python
 from pcbai.steps.pcb_router import route_pcb
