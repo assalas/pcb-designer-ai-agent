@@ -66,16 +66,21 @@ try:
                 except Exception as e:
                     print(f"Warning: could not load footprint {{best_match}}: {{e}}", file=sys.stderr)
 
-        # Apply experimental smart placement
+        # Apply experimental smart placement & auto-routing
         try:
             import sys
             # Ensure pcbai is in the path
             sys.path.insert(0, r'{os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))}')
+            
             from pcbai.steps.smart_placer import optimize_placement
             optimize_placement(board, netlist)
             print("Smart placement applied successfully.")
+            
+            from pcbai.steps.native_router import autoroute_board
+            autoroute_board(board)
+            print("Native auto-routing applied successfully.")
         except Exception as e:
-            print(f"Smart placement skipped or failed: {{e}}", file=sys.stderr)
+            print(f"Smart placement / routing skipped or failed: {{e}}", file=sys.stderr)
 
     pcbnew.SaveBoard(r'{output_pcb_path}', board)
     print(f"Board saved to {{r'{output_pcb_path}'}}")
