@@ -1,38 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional
 import os
 
 
-@dataclass
-class QfnParams:
-    name: str
-    pins: int
-    pitch: float
-    body_l: float
-    body_w: float
-    pad_l: float
-    pad_w: float
-    ep_l: float | None = None
-    ep_w: float | None = None
-    mask_expansion: float = 0.03
-    paste_ratio: float = 1.0
-
-
-@dataclass
-class QfpParams:
-    name: str
-    pins: int
-    pitch: float
-    body_l: float
-    body_w: float
-    pad_l: float
-    pad_w: float
-    gullwing_ext: float = 0.0
-    mask_expansion: float = 0.03
-    paste_ratio: float = 1.0
-
+# ─────────────────────────────────────────────────────────────
+# Shared writer
+# ─────────────────────────────────────────────────────────────
 
 class KiCadModuleWriter:
     def __init__(self, libdir: str):
@@ -46,82 +21,184 @@ class KiCadModuleWriter:
         return path
 
 
-def _generate_quad_pads(pins: int, pitch: float, pad_l: float, pad_w: float, row_y: float, row_x: float, start_num: int, vertical: bool, mask_expansion: float, paste_ratio: float) -> List[str]:
-    lines: List[str] = []
-    per_side = pins // 4
-    x0 = - (pitch * (per_side - 1)) / 2.0
-    for i in range(per_side):
-        x = x0 + i * pitch
-        n = start_num + i
-        if vertical:
-            atx, aty = row_x, x
-            size_x, size_y = pad_l, pad_w
-        else:
-            atx, aty = x, row_y
-            size_x, size_y = pad_w, pad_l
-        lines.append(
-            f"  (pad {n} smd rect (at {atx:.3f} {aty:.3f}) (size {size_x:.3f} {size_y:.3f}) (layers F.Cu F.Paste F.Mask) (solder_mask_margin {mask_expansion:.3f}) (solder_paste_margin_ratio {paste_ratio - 1.0:.3f}))"
-        )
-    return lines
+# ─────────────────────────────────────────────────────────────
+# QFN
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class QfnParams:
+    name: str
+    pins: int          # total pin count (must be divisible by 4)
+    pitch: float       # mm between pad centres
+    body_l: float      # package body length (mm)
+    body_w: float      # package body width (mm)
+    pad_l: float       # pad length (in direction perpendicular to body edge, mm)
+    pad_w: float       # pad width (along body edge, mm)
+    ep_l: Optional[float] = None   # exposed pad length (mm); None = no EP
+    ep_w: Optional[float] = None   # exposed pad width (mm)
 
 
 def generate_qfn(params: QfnParams) -> str:
+    """Generate a KiCad 6/7/8 .kicad_mod string for a QFN package."""
     if params.pins % 4 != 0:
-        raise ValueError("QFN pins must be multiple of 4")
+        raise ValueError("QFN pin count must be divisible by 4")
+
     per_side = params.pins // 4
     lines: List[str] = []
-    lines.append(f"(module {params.name} (layer F.Cu) (tedit 5B3079AF)")
-    lines.append("  (attr smd)")
-    # Body fab outline
+
+    lines.append(f'(module "{params.name}" (layer "F.Cu") (tedit 60000000)')
+    lines.append(f'  (descr "QFN-{params.pins}, pitch {params.pitch}mm")')
+    lines.append(f'  (fp_text reference "REF**" (at 0 -{params.body_l / 2 + 1.5}) (layer "F.SilkS"))')
+    lines.append(f'  (fp_text value "{params.name}" (at 0 {params.body_l / 2 + 1.5}) (layer "F.Fab"))')
+
+    # Courtyard / silkscreen body outline
     hw = params.body_w / 2.0
     hl = params.body_l / 2.0
-    fab = [(-hl, -hw), (hl, -hw), (hl, hw), (-hl, hw), (-hl, -hw)]
-    for i in range(4):
-        x1, y1 = fab[i]
-        x2, y2 = fab[i+1]
-        lines.append(f"  (fp_line (start {x1:.3f} {y1:.3f}) (end {x2:.3f} {y2:.3f}) (layer F.Fab) (width 0.1))")
-    # Pin 1 marker
-    lines.append(f"  (fp_circle (center {-hl+0.6:.3f} {-hw+0.6:.3f}) (end {-hl+0.3:.3f} {-hw+0.6:.3f}) (layer F.SilkS) (width 0.2))")
+    lines.append(f'  (fp_line (start -{hw:.3f} -{hl:.3f}) (end {hw:.3f} -{hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_line (start {hw:.3f} -{hl:.3f}) (end {hw:.3f} {hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_line (start {hw:.3f} {hl:.3f}) (end -{hw:.3f} {hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_line (start -{hw:.3f} {hl:.3f}) (end -{hw:.3f} -{hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    # Pin-1 marker
+    lines.append(f'  (fp_circle (center -{hw - 0.4:.3f} -{hl - 0.4:.3f}) (end -{hw - 0.15:.3f} -{hl - 0.4:.3f}) (layer "F.SilkS") (width 0.2))')
 
-    # Pads by side
-    offset = hw + params.pad_l/2.0
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=+offset, row_x=+offset, start_num=1,  vertical=False, mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=+offset, row_x=-offset, start_num=1+per_side, vertical=True,  mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=-offset, row_x=-offset, start_num=1+2*per_side, vertical=False, mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=-offset, row_x=+offset, start_num=1+3*per_side, vertical=True,  mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-
-    # Exposed pad
-    if params.ep_l and params.ep_w:
+    pad_num = 1
+    # Bottom side (pins run left→right, pads extend downward)
+    x0 = -((per_side - 1) * params.pitch) / 2.0
+    pad_y = hl + params.pad_l / 2.0 - params.pad_l * 0.3   # typical QFN land length overlap
+    for i in range(per_side):
+        x = x0 + i * params.pitch
         lines.append(
-            f"  (pad EP smd rect (at 0 0) (size {params.ep_l:.3f} {params.ep_w:.3f}) (layers F.Cu F.Paste F.Mask) (solder_mask_margin {params.mask_expansion:.3f}) (solder_paste_margin_ratio {params.paste_ratio - 1.0:.3f}))"
+            f'  (pad "{pad_num}" smd rect (at {x:.3f} {pad_y:.3f}) '
+            f'(size {params.pad_w:.3f} {params.pad_l:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Right side (pins run bottom→top)
+    pad_x = hw + params.pad_l / 2.0 - params.pad_l * 0.3
+    y0 = ((per_side - 1) * params.pitch) / 2.0
+    for i in range(per_side):
+        y = y0 - i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {pad_x:.3f} {y:.3f}) '
+            f'(size {params.pad_l:.3f} {params.pad_w:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Top side (pins run right→left)
+    pad_y = -(hl + params.pad_l / 2.0 - params.pad_l * 0.3)
+    x0_top = ((per_side - 1) * params.pitch) / 2.0
+    for i in range(per_side):
+        x = x0_top - i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {x:.3f} {pad_y:.3f}) '
+            f'(size {params.pad_w:.3f} {params.pad_l:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Left side (pins run top→bottom)
+    pad_x = -(hw + params.pad_l / 2.0 - params.pad_l * 0.3)
+    y0_left = -((per_side - 1) * params.pitch) / 2.0
+    for i in range(per_side):
+        y = y0_left + i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {pad_x:.3f} {y:.3f}) '
+            f'(size {params.pad_l:.3f} {params.pad_w:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Exposed pad (EP)
+    if params.ep_l is not None and params.ep_w is not None:
+        lines.append(
+            f'  (pad "EP" smd rect (at 0 0) '
+            f'(size {params.ep_l:.3f} {params.ep_w:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
         )
 
     lines.append(")")
     return "\n".join(lines) + "\n"
 
 
+# ─────────────────────────────────────────────────────────────
+# QFP
+# ─────────────────────────────────────────────────────────────
+
+@dataclass
+class QfpParams:
+    name: str
+    pins: int          # total pin count (must be divisible by 4)
+    pitch: float       # mm between pad centres
+    body_l: float      # package body length (mm)
+    body_w: float      # package body width (mm)
+    pad_l: float       # gull-wing land length (mm)
+    pad_w: float       # pad width along body edge (mm)
+    gullwing_ext: float = 0.5  # how far pads extend beyond body edge (mm)
+
+
 def generate_qfp(params: QfpParams) -> str:
+    """Generate a KiCad 6/7/8 .kicad_mod string for a QFP package."""
     if params.pins % 4 != 0:
-        raise ValueError("QFP pins must be multiple of 4")
+        raise ValueError("QFP pin count must be divisible by 4")
+
     per_side = params.pins // 4
     lines: List[str] = []
-    lines.append(f"(module {params.name} (layer F.Cu) (tedit 5B3079AF)")
-    lines.append("  (attr smd)")
+
+    lines.append(f'(module "{params.name}" (layer "F.Cu") (tedit 60000000)')
+    lines.append(f'  (descr "QFP-{params.pins}, pitch {params.pitch}mm")')
+    lines.append(f'  (fp_text reference "REF**" (at 0 -{params.body_l / 2 + 2.0}) (layer "F.SilkS"))')
+    lines.append(f'  (fp_text value "{params.name}" (at 0 {params.body_l / 2 + 2.0}) (layer "F.Fab"))')
+
     hw = params.body_w / 2.0
     hl = params.body_l / 2.0
-    fab = [(-hl, -hw), (hl, -hw), (hl, hw), (-hl, hw), (-hl, -hw)]
-    for i in range(4):
-        x1, y1 = fab[i]
-        x2, y2 = fab[i+1]
-        lines.append(f"  (fp_line (start {x1:.3f} {y1:.3f}) (end {x2:.3f} {y2:.3f}) (layer F.Fab) (width 0.1))")
-    lines.append(f"  (fp_circle (center {-hl+0.6:.3f} {-hw+0.6:.3f}) (end {-hl+0.3:.3f} {-hw+0.6:.3f}) (layer F.SilkS) (width 0.2))")
+    lines.append(f'  (fp_line (start -{hw:.3f} -{hl:.3f}) (end {hw:.3f} -{hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_line (start {hw:.3f} -{hl:.3f}) (end {hw:.3f} {hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_line (start {hw:.3f} {hl:.3f}) (end -{hw:.3f} {hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_line (start -{hw:.3f} {hl:.3f}) (end -{hw:.3f} -{hl:.3f}) (layer "F.SilkS") (width 0.12))')
+    lines.append(f'  (fp_circle (center -{hw - 0.4:.3f} -{hl - 0.4:.3f}) (end -{hw - 0.15:.3f} -{hl - 0.4:.3f}) (layer "F.SilkS") (width 0.2))')
 
-    # Pads (gullwing leads): extend outside body by gullwing_ext
-    offset = hw + params.pad_l/2.0 + params.gullwing_ext
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=+offset, row_x=+offset, start_num=1,  vertical=False, mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=+offset, row_x=-offset, start_num=1+per_side, vertical=True,  mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=-offset, row_x=-offset, start_num=1+2*per_side, vertical=False, mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
-    lines += _generate_quad_pads(params.pins, params.pitch, params.pad_l, params.pad_w, row_y=-offset, row_x=+offset, start_num=1+3*per_side, vertical=True,  mask_expansion=params.mask_expansion, paste_ratio=params.paste_ratio)
+    pad_num = 1
+    x0 = -((per_side - 1) * params.pitch) / 2.0
+
+    # Bottom row
+    pad_y = hl + params.gullwing_ext + params.pad_l / 2.0
+    for i in range(per_side):
+        x = x0 + i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {x:.3f} {pad_y:.3f}) '
+            f'(size {params.pad_w:.3f} {params.pad_l:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Right column
+    pad_x = hw + params.gullwing_ext + params.pad_l / 2.0
+    y0 = ((per_side - 1) * params.pitch) / 2.0
+    for i in range(per_side):
+        y = y0 - i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {pad_x:.3f} {y:.3f}) '
+            f'(size {params.pad_l:.3f} {params.pad_w:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Top row
+    pad_y = -(hl + params.gullwing_ext + params.pad_l / 2.0)
+    x0_top = ((per_side - 1) * params.pitch) / 2.0
+    for i in range(per_side):
+        x = x0_top - i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {x:.3f} {pad_y:.3f}) '
+            f'(size {params.pad_w:.3f} {params.pad_l:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
+
+    # Left column
+    pad_x = -(hw + params.gullwing_ext + params.pad_l / 2.0)
+    y0_left = -((per_side - 1) * params.pitch) / 2.0
+    for i in range(per_side):
+        y = y0_left + i * params.pitch
+        lines.append(
+            f'  (pad "{pad_num}" smd rect (at {pad_x:.3f} {y:.3f}) '
+            f'(size {params.pad_l:.3f} {params.pad_w:.3f}) (layers "F.Cu" "F.Paste" "F.Mask"))'
+        )
+        pad_num += 1
 
     lines.append(")")
     return "\n".join(lines) + "\n"
