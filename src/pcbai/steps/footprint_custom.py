@@ -28,7 +28,7 @@ def generate_custom(params: CustomParams) -> str:
             pw = pad.get("w", 1.0)
             ph = pad.get("h", 1.0)
             ptype = pad.get("type", "smd")
-
+            
             if ptype == "smd":
                 mod += f'  (pad "{pid}" smd {shape} (at {px} {py}) (size {pw} {ph}) (layers "F.Cu" "F.Paste" "F.Mask"))\n'
             else:
@@ -36,6 +36,6 @@ def generate_custom(params: CustomParams) -> str:
                 mod += f'  (pad "{pid}" thru_hole {shape} (at {px} {py}) (size {pw} {ph}) (drill {drill}) (layers *.Cu *.Mask))\n'
     except Exception as e:
         mod += f"  ;; Error parsing coordinates: {e}\n"
-
+        
     mod += ")\n"
     return mod

@@ -21,6 +21,6 @@ def generate_header(params: HeaderParams) -> str:
         y = i * params.pitch
         shape = "rect" if i == 0 else "circle"
         mod += f'  (pad "{i+1}" thru_hole {shape} (at 0 {y}) (size {params.pad_dia} {params.pad_dia}) (drill {params.drill_dia}) (layers *.Cu *.Mask))\n'
-
+    
     mod += ")\n"
     return mod
