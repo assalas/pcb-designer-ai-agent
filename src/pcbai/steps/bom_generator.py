@@ -30,7 +30,7 @@ def generate_bom(requirements: Dict) -> List[Dict]:
     for kw in keywords:
         if octopart_api_key:
             try:
-                url = f"https://octopart.com/api/v4/endpoint"
+                url = f"https://octopart.com/api/v4/graphql"
                 headers = {"token": octopart_api_key}
                 query = """
                 query Search($q: String!) {

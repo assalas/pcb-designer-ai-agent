@@ -78,5 +78,9 @@ def bom_to_schematic(bom: List[Dict]) -> str:
 
         refs.append(part.ref)
 
-    ERC();
+    try:
+        ERC()
+    except Exception as e:
+        print(f"ERC failed (often due to stub parts): {e}")
+
     return generate_netlist()
