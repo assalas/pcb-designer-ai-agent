@@ -158,11 +158,25 @@ Produces `build/netlist.txt` (SKiDL netlist), then use `pcb_router` to generate 
 `pcb_router.route_pcb()` generates a Python script that uses the `pcbnew` API to:
 
 1. Create a new `BOARD`
-2. Register nets from the netlist via `NETINFO_ITEM` + `board.Add()`
-3. **Instantiate and place footprints**: Automatically load `.kicad_mod` files from the `footprints/` directory, assign component MPNs/References, and place them onto the board canvas.
-4. **Library Management**: Automatically generate a project-level `fp-lib-table` so KiCad recognizes the local footprints immediately when opened.
-5. Save a valid `.kicad_pcb` file
-6. Attempt DSN export for Freerouting
+2. Register nets from the netlist
+3. **Instantiate and place footprints**: Loads `.kicad_mod` files from the `footprints/` directory.
+4. **Smart Placement**: Uses heuristic algorithms to automatically cluster components (e.g. snapping decoupling capacitors directly to MCU power pins) based on netlist relationships.
+5. **Library Management**: Generates a project-level `fp-lib-table` so KiCad recognizes local footprints immediately.
+6. Saves a valid `.kicad_pcb` file.
+7. Exports a `.dsn` file for professional auto-routing via **FreeRouting**.
+
+### Auto-Routing
+
+**Option 1: FreeRouting (Recommended)**
+The pipeline automatically exports a Specctra `.dsn` file. For production-grade routing with full obstacle avoidance and via generation, install [FreeRouting](https://freerouting.org/), open the `.dsn` file, let it run, and export the resulting `.ses` file back into your `.kicad_pcb` board.
+
+**Option 2: Native Python Router (Experimental)**
+The agent includes a highly experimental, naive Manhattan router written natively in Python using the `pcbnew` API. **Warning:** It has no obstacle avoidance and will create short circuits. It is intended purely as a scaffold for developing LLM-guided ML routers in the future.
+To test it, set the environment variable:
+```bash
+export PCB_AI_EXPERIMENTAL_ROUTER=1
+pcbai synthesize "ESP32 board with 3.3V buck converter"
+```
 
 ```python
 from pcbai.steps.pcb_router import route_pcb

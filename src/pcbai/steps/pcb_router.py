@@ -76,9 +76,13 @@ try:
             optimize_placement(board, netlist)
             print("Smart placement applied successfully.")
             
-            from pcbai.steps.native_router import autoroute_board
-            autoroute_board(board)
-            print("Native auto-routing applied successfully.")
+            if os.environ.get("PCB_AI_EXPERIMENTAL_ROUTER") == "1":
+                print("\n[WARNING] Running EXPERIMENTAL Native Python Router!")
+                print("          This is a naive Manhattan router with NO obstacle avoidance.")
+                print("          Traces will cross and short-circuit. Do NOT use for production!")
+                from pcbai.steps.native_router import autoroute_board
+                autoroute_board(board)
+                print("Native auto-routing applied (Expect Shorts!).")
         except Exception as e:
             print(f"Smart placement / routing skipped or failed: {{e}}", file=sys.stderr)
 

@@ -27,9 +27,18 @@ def route_manhattan(board: pcbnew.BOARD, start_pos: pcbnew.VECTOR2I, end_pos: pc
 
 def autoroute_board(board: pcbnew.BOARD):
     """
-    Experimental Native Python Router.
-    Finds all pads belonging to the same net and connects them with copper tracks.
-    This is a naive Manhattan router (L-shapes) acting as a scaffold for a future A* solver.
+    [EXPERIMENTAL / NOT READY FOR PRODUCTION]
+    Native Python Auto-Router using pcbnew API.
+    
+    WARNING: This is a naive Manhattan router (L-shapes) acting purely as a 
+    scaffold/proof-of-concept for future A* solvers. 
+    
+    It currently lacks:
+    - Obstacle avoidance (traces WILL cross and short-circuit)
+    - Layer hopping (no vias are generated)
+    - DRC compliance (clearances are ignored)
+    
+    For professional routing, use the exported .dsn file with FreeRouting instead.
     """
     # Group pads by net code
     nets_pads = {}
