@@ -62,13 +62,20 @@ try:
                     board.Add(fp)
                     fp.SetReference(ref)
                     fp.SetValue(mpn)
-                    fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
-                    x += 20.0
-                    if x > 150.0:
-                        x = 50.0
-                        y += 20.0
+                    # We will let the smart placer set the final position
                 except Exception as e:
                     print(f"Warning: could not load footprint {{best_match}}: {{e}}", file=sys.stderr)
+
+        # Apply experimental smart placement
+        try:
+            import sys
+            # Ensure pcbai is in the path
+            sys.path.insert(0, r'{os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))}')
+            from pcbai.steps.smart_placer import optimize_placement
+            optimize_placement(board, netlist)
+            print("Smart placement applied successfully.")
+        except Exception as e:
+            print(f"Smart placement skipped or failed: {{e}}", file=sys.stderr)
 
     pcbnew.SaveBoard(r'{output_pcb_path}', board)
     print(f"Board saved to {{r'{output_pcb_path}'}}")
