@@ -177,12 +177,46 @@ print(result["board_file"])  # build/board.kicad_pcb
 
 ## Configuration
 
-Runtime config via environment variables or YAML — see `src/pcbai/core/config.py`.
+The agent uses LLM providers for parsing text, generating BOMs, and extracting package dimensions from datasheets.
 
+### Available Providers
+Set the `PCB_AI_LLM_PROVIDER` environment variable to choose a provider:
+
+| Provider | Value | Environment Variables Required |
+|----------|-------|--------------------------------|
+| **LM Studio** (Local) | `lmstudio` | `LMSTUDIO_URL` (default: `http://localhost:1234`) |
+| **Ollama** (Local) | `ollama` | `OLLAMA_URL` (default: `http://localhost:11434`) |
+| **OpenAI** | `openai` | `OPENAI_API_KEY` |
+| **Anthropic (Claude)** | `claude` | `ANTHROPIC_API_KEY` |
+| **Google Gemini** | `gemini` | `GEMINI_API_KEY` |
+| **Dummy** | `dummy` | None (returns static responses) |
+
+### Global LLM Settings
+You can customize the model and parameters across all providers using:
+* `PCB_AI_MODEL` - E.g. `gpt-4o`, `claude-3-5-sonnet-20240620`, `gemini-1.5-pro`
+* `PCB_AI_MAX_TOKENS` - Override the max output tokens limit
+* `PCB_AI_TEMPERATURE` - Override the default generation temperature (default 0.2)
+
+**Example (Local Llama 3 via Ollama):**
+```bash
+export PCB_AI_LLM_PROVIDER="ollama"
+export PCB_AI_MODEL="llama3"
+export PCB_AI_MAX_TOKENS="1024"
+pcbai bom "ESP32 board with 3.3V buck converter"
+```
+
+**Example (Online Gemini 1.5):**
+```bash
+export PCB_AI_LLM_PROVIDER="gemini"
+export GEMINI_API_KEY="AIzaSy..."
+export PCB_AI_MODEL="gemini-1.5-pro"
+pcbai synthesize "ESP32 board with 3.3V buck converter"
+```
+
+### Other Integrations
 | Variable | Purpose |
 |---|---|
-| `OCTOPART_API_KEY` | Live BOM lookup via Octopart GraphQL API |
-| `OPENAI_API_KEY` | LLM-Vision datasheet extraction |
+| `OCTOPART_API_KEY` | Live BOM component and package lookup via Octopart GraphQL API. Without this, the BOM generator falls back to a limited local dictionary. |
 
 ## Running Tests
 
