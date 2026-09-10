@@ -84,65 +84,59 @@ def _find_first_int(pattern: str, text: str) -> Optional[int]:
 import os
 import base64
 import requests
+import json
+from pcbai.llm.provider import get_provider
+
+def extract_with_llm(text: str) -> Optional[PackageGuess]:
+    """Use the configured LLM to extract package parameters from datasheet text."""
+    provider = get_provider()
+    
+    prompt = f"""
+You are an expert electronics engineer. Extract the physical package dimensions from the following datasheet text.
+The text is from the mechanical drawing section at the end of the datasheet.
+
+Look for a table or text listing dimensions (e.g., body length D, body width E, pitch e, pin width b, exposed pad D2/E2).
+Always use millimeters (mm). If the datasheet gives min/nom/max, use the nominal (nom/typ) or average of min/max.
+
+Extract and output ONLY a raw JSON object with these exact keys (use null if not found):
+- pkg_type (string, e.g., "qfn", "qfp", "soic", "bga", "dip", "unknown")
+- pins (integer, number of pins/pads)
+- pitch (float, e.g., 0.5)
+- body_l (float, body length)
+- body_w (float, body width)
+- pad_l (float, pad/terminal length)
+- pad_w (float, pad/terminal width)
+- ep_l (float, exposed pad length, for QFN)
+- ep_w (float, exposed pad width, for QFN)
+
+Datasheet Text:
+{text[-12000:]}  # usually at the end of the datasheet
+"""
+    try:
+        content = provider.complete(prompt, max_tokens=300)
+            
+        # Extract JSON
+        start = content.find('{')
+        end = content.rfind('}') + 1
+        if start != -1 and end != -1:
+            data = json.loads(content[start:end])
+            return PackageGuess(
+                pkg_type=str(data.get('pkg_type', 'unknown')).lower(),
+                pins=int(data.get('pins')) if data.get('pins') is not None else None,
+                pitch=float(data.get('pitch')) if data.get('pitch') is not None else None,
+                body_l=float(data.get('body_l')) if data.get('body_l') is not None else None,
+                body_w=float(data.get('body_w')) if data.get('body_w') is not None else None,
+                pad_l=float(data.get('pad_l')) if data.get('pad_l') is not None else None,
+                pad_w=float(data.get('pad_w')) if data.get('pad_w') is not None else None,
+                ep_l=float(data.get('ep_l')) if data.get('ep_l') is not None else None,
+                ep_w=float(data.get('ep_w')) if data.get('ep_w') is not None else None
+            )
+    except Exception as e:
+        print(f"[Extractor] LLM parsing failed: {e}")
+    return None
 
 def extract_with_vision(pdf_path: str, provider: str) -> Optional[PackageGuess]:
-    """Fallback to LLM Vision extraction when an API is available."""
-    try:
-        from pdf2image import convert_from_path
-        images = convert_from_path(pdf_path)
-        if not images:
-            return None
-
-        # We'll just look at the first page for the example, or iterate through.
-        # Save to temp bytes
-        import io
-        img_byte_arr = io.BytesIO()
-        images[0].save(img_byte_arr, format='PNG')
-        base64_image = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
-
-        if provider.lower() == "openai":
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if not api_key:
-                return None
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            }
-            payload = {
-                "model": "gpt-4o",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "Extract package dimensions (type, pins, pitch, body_l, body_w, pad_l, pad_w) from this datasheet as JSON."},
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                        ]
-                    }
-                ],
-                "max_tokens": 300
-            }
-            response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=30)
-            if response.status_code == 200:
-                content = response.json()['choices'][0]['message']['content']
-                # Crude JSON extraction for demonstration
-                import json
-                try:
-                    start = content.find('{')
-                    end = content.rfind('}') + 1
-                    data = json.loads(content[start:end])
-                    return PackageGuess(
-                        pkg_type=data.get('pkg_type', 'unknown'),
-                        pins=data.get('pins'),
-                        pitch=data.get('pitch'),
-                        body_l=data.get('body_l'),
-                        body_w=data.get('body_w'),
-                        pad_l=data.get('pad_l'),
-                        pad_w=data.get('pad_w')
-                    )
-                except json.JSONDecodeError:
-                    return None
-    except Exception as e:
-        print(f"Vision extraction failed: {e}")
+    """Legacy vision extractor placeholder (replaced by text-based LLM)."""
     return None
 
 
@@ -188,7 +182,12 @@ def extract_package_params_from_pdf(pdf_path: str, vision_provider: Optional[str
     if not text.strip():
         return PackageGuess(pkg_type="unknown")
 
-    # Normalize
+    # Try LLM extraction first (most accurate for complex datasheets)
+    llm_guess = extract_with_llm(text)
+    if llm_guess and llm_guess.pkg_type != "unknown" and (llm_guess.pitch or llm_guess.pins):
+        return llm_guess
+
+    # Fallback to Regex
     t = re.sub(r"\s+", " ", text)
 
     # Determine package family
