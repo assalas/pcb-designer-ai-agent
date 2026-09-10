@@ -158,10 +158,25 @@ Produces `build/netlist.txt` (SKiDL netlist), then use `pcb_router` to generate 
 `pcb_router.route_pcb()` generates a Python script that uses the `pcbnew` API to:
 
 1. Create a new `BOARD`
-2. Register nets from the netlist via `NETINFO_ITEM` + `board.Add()`
-3. Place footprints in a grid
-4. Save a valid `.kicad_pcb` file
-5. Attempt DSN export for Freerouting
+2. Register nets from the netlist
+3. **Instantiate and place footprints**: Loads `.kicad_mod` files from the `footprints/` directory.
+4. **Smart Placement**: Uses heuristic algorithms to automatically cluster components (e.g. snapping decoupling capacitors directly to MCU power pins) based on netlist relationships.
+5. **Library Management**: Generates a project-level `fp-lib-table` so KiCad recognizes local footprints immediately.
+6. Saves a valid `.kicad_pcb` file.
+7. Exports a `.dsn` file for professional auto-routing via **FreeRouting**.
+
+### Auto-Routing
+
+**Option 1: FreeRouting (Recommended)**
+The pipeline automatically exports a Specctra `.dsn` file. For production-grade routing with full obstacle avoidance and via generation, install [FreeRouting](https://freerouting.org/), open the `.dsn` file, let it run, and export the resulting `.ses` file back into your `.kicad_pcb` board.
+
+**Option 2: Native Python Router (Experimental)**
+The agent includes a highly experimental, naive Manhattan router written natively in Python using the `pcbnew` API. **Warning:** It has no obstacle avoidance and will create short circuits. It is intended purely as a scaffold for developing LLM-guided ML routers in the future.
+To test it, set the environment variable:
+```bash
+export PCB_AI_EXPERIMENTAL_ROUTER=1
+pcbai synthesize "ESP32 board with 3.3V buck converter"
+```
 
 ```python
 from pcbai.steps.pcb_router import route_pcb
@@ -176,12 +191,46 @@ print(result["board_file"])  # build/board.kicad_pcb
 
 ## Configuration
 
-Runtime config via environment variables or YAML — see `src/pcbai/core/config.py`.
+The agent uses LLM providers for parsing text, generating BOMs, and extracting package dimensions from datasheets.
 
+### Available Providers
+Set the `PCB_AI_LLM_PROVIDER` environment variable to choose a provider:
+
+| Provider | Value | Environment Variables Required |
+|----------|-------|--------------------------------|
+| **LM Studio** (Local) | `lmstudio` | `LMSTUDIO_URL` (default: `http://localhost:1234`) |
+| **Ollama** (Local) | `ollama` | `OLLAMA_URL` (default: `http://localhost:11434`) |
+| **OpenAI** | `openai` | `OPENAI_API_KEY` |
+| **Anthropic (Claude)** | `claude` | `ANTHROPIC_API_KEY` |
+| **Google Gemini** | `gemini` | `GEMINI_API_KEY` |
+| **Dummy** | `dummy` | None (returns static responses) |
+
+### Global LLM Settings
+You can customize the model and parameters across all providers using:
+* `PCB_AI_MODEL` - E.g. `gpt-4o`, `claude-3-5-sonnet-20240620`, `gemini-1.5-pro`
+* `PCB_AI_MAX_TOKENS` - Override the max output tokens limit
+* `PCB_AI_TEMPERATURE` - Override the default generation temperature (default 0.2)
+
+**Example (Local Llama 3 via Ollama):**
+```bash
+export PCB_AI_LLM_PROVIDER="ollama"
+export PCB_AI_MODEL="llama3"
+export PCB_AI_MAX_TOKENS="1024"
+pcbai bom "ESP32 board with 3.3V buck converter"
+```
+
+**Example (Online Gemini 1.5):**
+```bash
+export PCB_AI_LLM_PROVIDER="gemini"
+export GEMINI_API_KEY="AIzaSy..."
+export PCB_AI_MODEL="gemini-1.5-pro"
+pcbai synthesize "ESP32 board with 3.3V buck converter"
+```
+
+### Other Integrations
 | Variable | Purpose |
 |---|---|
-| `OCTOPART_API_KEY` | Live BOM lookup via Octopart GraphQL API |
-| `OPENAI_API_KEY` | LLM-Vision datasheet extraction |
+| `OCTOPART_API_KEY` | Live BOM component and package lookup via Octopart GraphQL API. Without this, the BOM generator falls back to a limited local dictionary. |
 
 ## Running Tests
 

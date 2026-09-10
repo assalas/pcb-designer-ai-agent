@@ -12,15 +12,15 @@ from unittest import mock
 # ─────────────────────────────────────────────
 
 def test_generate_pcbnew_script_contains_key_api_calls():
-    """Generated script should use KiCad 10 API: GetFootprints, VECTOR2I, NETINFO_ITEM."""
+    """Generated script should use KiCad 10 API: FootprintLoad, VECTOR2I, NETINFO_ITEM."""
     from pcbai.steps.pcb_router import _generate_pcbnew_script
-    script = _generate_pcbnew_script("/tmp/net.xml", "/tmp/board.kicad_pcb")
+    script = _generate_pcbnew_script("/tmp/net.xml", "/tmp/board.kicad_pcb", "/tmp/footprints")
 
-    assert "GetFootprints" in script, "Should use KiCad 10 GetFootprints()"
+    assert "FootprintLoad" in script, "Should use FootprintLoad() to place components"
     assert "VECTOR2I" in script, "Should use VECTOR2I for position"
     assert "FromMM" in script, "Should use pcbnew.FromMM() for unit conversion"
     assert "NETINFO_ITEM" in script, "Should register nets via NETINFO_ITEM"
-    assert "board.Add" in script, "Should use board.Add() to register nets (KiCad 10 API)"
+    assert "board.Add" in script, "Should use board.Add() to register nets/footprints"
     assert "BuildListOfNets" in script, "Should call BuildListOfNets after adding nets"
     assert "ReadNetlist" not in script, "Deprecated ReadNetlist should not be used"
 
