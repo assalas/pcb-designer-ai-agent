@@ -1,0 +1,48 @@
+schema-version: 2
+reef:
+  host: 127.0.0.1
+  port: 8900
+  token: reef-local
+  run-dir: work/stack
+
+recipe:
+  implementation: reef.recipe.cordis:CordisRecipe
+  config:
+    evolution:
+      adapter: pi
+      propose: harness.evolution:propose
+      evaluate: harness.evolution:evaluate
+      tasks:
+        - >-
+          [soic] The device is available in a 14-pin SOIC package. Pitch: 1.27mm. Body length: 8.65 mm. Body width: 3.9 mm.
+        - >-
+          [bga] This is a 64-pin TFBGA. Lead pitch 1.0mm. Ball diameter is 0.5mm. Package length: 10mm. Package width: 10 mm.
+        - >-
+          [dip] Standard 8-pin PDIP package. Pitch: 2.54 mm.
+      seed:
+        - id: extraction-prompt
+          name: skill
+          config:
+            name: extraction-prompt
+            text: |
+              # extraction-prompt
+              Extract the package parameters (pkg_type, pins, pitch, body_l, body_w, pad_l, pad_w) from the provided text. Return JSON.
+
+    batch-size: 1
+    max-score: 1.0
+    training-mode: auto
+
+inference:
+  upstream-url: http://127.0.0.1:1234/v1
+  upstream-api-key: mock-key
+  upstream-model: local-model
+
+storage:
+  agent-record-dir: work/agent-record
+  artifact-repository: work/artifacts.git
+  artifact-work-dir: work/artifact-work
+  artifact-cache-dir: work/artifact-cache
+
+execution:
+  evolution:
+    workers: 1

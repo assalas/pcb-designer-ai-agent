@@ -1,0 +1,33 @@
+{
+  "schema": 2,
+  "required_executas": [
+    {
+      "tool_id": "tool-assalas-pcb-designer-nefeer3m"
+    }
+  ],
+  "tags": ["pcb", "kicad", "hardware", "engineering"],
+  "ui": {
+    "bundle": {
+      "format": "static-spa",
+      "entry": "index.html",
+      "external_origins": []
+    },
+    "views": [
+      {
+        "name": "main",
+        "title": "PCB Designer Dashboard",
+        "default": true,
+        "default_size": { "w": 1024, "h": 768 },
+        "min_size": { "w": 400, "h": 400 }
+      }
+    ],
+    "host_api": {
+      "tools": ["tool-assalas-pcb-designer-nefeer3m"],
+      "storage": ["get", "set"],
+      "window": ["set_title", "ready"],
+      "llm": ["sample", "complete"]
+    },
+    "csp_overrides": {},
+    "state_merge": "last_writer_wins"
+  }
+}

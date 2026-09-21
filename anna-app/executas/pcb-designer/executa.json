@@ -1,0 +1,72 @@
+{
+  "slug": "pcb-designer",
+  "tool_id": "tool-assalas-pcb-designer-nefeer3m",
+  "name": "pcb-designer",
+  "display_name": "PCB Designer AI Agent",
+  "version": "1.0.7",
+  "description": "Professional PCB design agent for rapid prototyping on Anna OS. 1.0.7 adds ESP32 support.",
+  "author": "assalas",
+  "type": "tool",
+  "command": ["uv", "run", "python3", "plugin.py"],
+  "host_capabilities": ["llm.sample", "llm.complete"],
+  "credentials": [
+    {
+      "name": "OCTOPART_API_KEY",
+      "description": "Optional: Octopart API key for live vendor BOM lookups",
+      "required": false
+    }
+  ],
+  "tools": [
+    {
+      "name": "parse_requirements",
+      "description": "Extract structured component requirements from a natural-language hardware description. Uses deep LLM reasoning (via Anna sampling) with thorough chain-of-thought analysis for MCU selection, voltage domains, and LPKF constraints.",
+      "parameters": [
+        {"name": "description", "type": "string", "description": "Natural-language hardware description", "required": true}
+      ]
+    },
+    {
+      "name": "generate_bom",
+      "description": "Generate a Bill of Materials from structured requirements. Queries Octopart when credentials available, falls back to built-in catalog.",
+      "parameters": [
+        {"name": "requirements_json", "type": "string", "description": "JSON string of structured requirements", "required": true}
+      ]
+    },
+    {
+      "name": "extract_package_from_pdf",
+      "description": "Deep extraction of package dimensions from a component datasheet PDF. Multi-stage pipeline: text extraction, OCR fallback, LLM-powered dimensional analysis with thorough reasoning for mechanical drawings.",
+      "parameters": [
+        {"name": "pdf_path", "type": "string", "description": "Absolute path to PDF datasheet", "required": true}
+      ]
+    },
+    {
+      "name": "generate_footprint",
+      "description": "Generate a KiCad .kicad_mod footprint file. Supports: qfn, qfp, soic, smd_rc, bga, dip, usbc, header, custom.",
+      "parameters": [
+        {"name": "footprint_type", "type": "string", "description": "Package type: qfn|qfp|soic|smd_rc|bga|dip|usbc|header|custom", "required": true},
+        {"name": "params_json", "type": "string", "description": "JSON object of footprint parameters", "required": true}
+      ]
+    },
+    {
+      "name": "synthesize_netlist",
+      "description": "Generate a SKiDL netlist from a BOM with automatic decoupling and buck converter support circuits.",
+      "parameters": [
+        {"name": "bom_json", "type": "string", "description": "JSON array of BOM entries", "required": true}
+      ]
+    },
+    {
+      "name": "route_pcb",
+      "description": "Route a PCB board from a netlist using KiCad pcbnew with smart heuristic placement and optional Manhattan routing.",
+      "parameters": [
+        {"name": "netlist_json", "type": "string", "description": "JSON netlist structure", "required": true},
+        {"name": "output_dir", "type": "string", "description": "Directory for output files", "required": false}
+      ]
+    },
+    {
+      "name": "full_pipeline",
+      "description": "Run the complete end-to-end pipeline: NL description to requirements to BOM to netlist to board layout. Includes comprehensive engineering analysis report with LPKF manufacturability assessment.",
+      "parameters": [
+        {"name": "description", "type": "string", "description": "Natural-language hardware description", "required": true}
+      ]
+    }
+  ]
+}

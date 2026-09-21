@@ -1,0 +1,7 @@
+{
+  "slug": "pcb-designer-app",
+  "name": "pcb-designer-app",
+  "tagline": "End-to-End AI PCB Designer",
+  "description": "An end-to-end PCB design assistant that structures requirements, parses PDFs, generates BOMs, and routes boards for LPKF rapid prototyping.",
+  "category": "productivity"
+}

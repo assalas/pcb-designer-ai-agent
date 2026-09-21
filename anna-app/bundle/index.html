@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PCB Designer Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="./app.js" type="module"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="logo">📐</div>
+        <h1>PCB Designer Dashboard</h1>
+      </header>
+      
+      <main>
+        <section class="card">
+          <h2>Project Status</h2>
+          <div id="status-badge" class="badge idle">Idle</div>
+          <p id="status-text">Waiting for LLM agent to start a build...</p>
+        </section>
+
+        <section class="card">
+          <h2>Latest Output Files</h2>
+          <ul id="file-list" class="file-list">
+            <li class="empty-state">No files generated yet. Ask the agent to route a board!</li>
+          </ul>
+        </section>
+
+        <section class="card input-section">
+          <h2>New Design Request</h2>
+          <div class="input-group">
+            <label for="prompt-input">Hardware Description</label>
+            <textarea id="prompt-input" rows="3" placeholder="e.g. Design a board with an STM32F103 MCU, a USB-C connector, and a 12V buck converter."></textarea>
+          </div>
+
+          <button id="run-demo-btn" class="primary-btn">▶ Generate PCB Pipeline</button>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

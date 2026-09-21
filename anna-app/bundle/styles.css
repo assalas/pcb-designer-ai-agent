@@ -1,0 +1,152 @@
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: #f4f4f5;
+  color: #18181b;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.logo {
+  font-size: 2rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #3f3f46;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.badge.idle { background: #e4e4e7; color: #52525b; }
+.badge.running { background: #dbeafe; color: #1e40af; }
+.badge.success { background: #dcfce7; color: #166534; }
+.badge.error { background: #fee2e2; color: #991b1b; }
+
+#status-text {
+  font-size: 0.95rem;
+  color: #52525b;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-list li {
+  padding: 10px;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-family: monospace;
+  background: #fafafa;
+}
+
+.file-list li.empty-state {
+  border: 1px dashed #d4d4d8;
+  background: transparent;
+  color: #71717a;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  padding: 20px;
+}
+
+.primary-btn {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+  opacity: 0.8;
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: #71717a;
+  margin-bottom: 12px;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: #3f3f46;
+}
+
+textarea, select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d4d4d8;
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.file-link {
+  color: #2563eb;
+  text-decoration: none;
+  cursor: pointer;
+  display: block;
+}
+
+.file-link:hover {
+  text-decoration: underline;
+}

@@ -1,0 +1,9 @@
+{
+  "$schema": "anna-executa-identity/v1",
+  "host": "https://anna.partners",
+  "executa_id": 1144,
+  "tool_id": "tool-assalas-pcb-designer-nefeer3m",
+  "slug": "pcb-designer",
+  "executa_type": "tool",
+  "first_published_at": "2026-09-21T09:01:51.104Z"
+}

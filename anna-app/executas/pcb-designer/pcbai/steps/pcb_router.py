@@ -4,6 +4,10 @@ from typing import Dict
 import os
 import subprocess
 import tempfile
+import pathlib
+
+_THIS_FILE = pathlib.Path(__file__).resolve()
+_SRC_DIR = str(_THIS_FILE.parent.parent.parent.resolve())
 
 
 def _generate_pcbnew_script(netlist_path: str, output_pcb_path: str, footprints_dir: str) -> str:
@@ -69,15 +73,15 @@ try:
         # Apply experimental smart placement & auto-routing
         try:
             import sys
-            # Ensure pcbai is in the path
-            sys.path.insert(0, r'{os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))}')
+            # Inject statically resolved source directory
+            sys.path.insert(0, r'{_SRC_DIR}')
             
             from pcbai.steps.smart_placer import optimize_placement
             optimize_placement(board, netlist)
             print("Smart placement applied successfully.")
             
             if os.environ.get("PCB_AI_EXPERIMENTAL_ROUTER") == "1":
-                print("\n[WARNING] Running EXPERIMENTAL Native Python Router!")
+                print("\\n[WARNING] Running EXPERIMENTAL Native Python Router!")
                 print("          This is a naive Manhattan router with NO obstacle avoidance.")
                 print("          Traces will cross and short-circuit. Do NOT use for production!")
                 from pcbai.steps.native_router import autoroute_board

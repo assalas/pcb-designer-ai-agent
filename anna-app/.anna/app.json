@@ -1,0 +1,8 @@
+{
+  "$schema": "anna-app-identity/v1",
+  "host": "https://anna.partners",
+  "app_id": 305,
+  "slug": "pcb-designer-app",
+  "handle": "assalas",
+  "first_published_at": "2026-09-21T10:26:54.432Z"
+}

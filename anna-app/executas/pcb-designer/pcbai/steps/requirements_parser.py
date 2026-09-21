@@ -50,7 +50,7 @@ def parse_requirements(natural_text: str) -> Dict:
         print(f"[requirements_parser] LLM unavailable ({e}), using keyword fallback.")
         lower = natural_text.lower()
         keywords = [w for w in [
-            "bluetooth", "wifi", "usb", "buck", "lipo", "mcu",
+            "bluetooth", "wifi", "usb", "buck", "lipo", "mcu", "sd", "ldo", "esp32",
             "adc", "opamp", "led", "relay", "sensor", "motor", "display"
         ] if w in lower]
         return {"keywords": keywords, "notes": natural_text.strip()}

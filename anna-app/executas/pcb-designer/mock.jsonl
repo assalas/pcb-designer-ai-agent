@@ -1,0 +1,1 @@
+{"id": "*", "result": {"role": "assistant", "content": {"type": "text", "text": "{\"pkg_type\": \"soic\", \"pins\": 8, \"pitch\": 1.27, \"body_l\": 4.9, \"body_w\": 3.9, \"pad_l\": 1.04, \"pad_w\": 0.65, \"ep_l\": null, \"ep_w\": null}"}, "model": "mock", "stopReason": "endTurn", "usage": {"inputTokens": 10, "outputTokens": 10, "totalTokens": 20}}}
