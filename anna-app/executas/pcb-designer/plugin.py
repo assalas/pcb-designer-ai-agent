@@ -217,7 +217,7 @@ MANIFEST = {
 # ════════════════════════════════════════════════════════════
 
 def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
-    """Parse requirements using Anna's hosted LLM (sampling) for deep reasoning."""
+    """Parse requirements using Anna's hosted LLM (sampling) or a local provider for deep reasoning."""
     description = args["description"]
     invoke_id = ctx.get("invoke_id", "")
 
@@ -236,15 +236,31 @@ def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
     )
 
     try:
-        raw = sample(
-            invoke_id,
-            description,
-            system_prompt=system_prompt,
-            max_tokens=2048,
-            temperature=0.1,
-            response_format={"type": "json_object"},
-        )
-        # Parse JSON from response
+        if os.environ.get("PCB_AI_LLM_PROVIDER") and os.environ.get("PCB_AI_LLM_PROVIDER") != "anna":
+            from pcbai.llm.provider import get_provider
+            provider = get_provider()
+            log(f"Using external LLM provider: {os.environ.get('PCB_AI_LLM_PROVIDER')}")
+            raw = provider.chat([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": description}
+            ], temperature=0.1, max_tokens=1024)
+        else:
+            raw = sample(
+                invoke_id,
+                description,
+                system_prompt=system_prompt,
+                max_tokens=1024,
+                temperature=0.1,
+            )
+
+        # Extract JSON from markdown fences if any
+        raw = raw.strip()
+        if "```" in raw:
+            parts = raw.split("```")
+            raw = parts[1] if len(parts) > 1 else raw
+            if raw.lower().startswith("json"):
+                raw = raw[4:]
+        
         result = json.loads(raw.strip())
         result.setdefault("notes", description)
         return {"success": True, "data": result}
@@ -479,29 +495,40 @@ def _tool_full_pipeline(args: dict, ctx: dict) -> dict:
     # Step 4: Generate analysis report via sampling
     log("Pipeline Step 4/4: Generating comprehensive analysis report...")
     try:
-        report = sample(
-            invoke_id,
-            (
-                f"Hardware description: {description}\n\n"
-                f"Generated BOM: {json.dumps(artifacts['bom'], indent=2)}\n\n"
-                "Provide a comprehensive engineering analysis report covering:\n"
-                "1. Component selection rationale and alternatives\n"
-                "2. Power domain analysis (voltage rails, current budget)\n"
-                "3. Signal integrity considerations\n"
-                "4. LPKF ProtoLaser S4 manufacturability assessment\n"
-                "5. Thermal management recommendations\n"
-                "6. Suggested PCB stackup and layer assignment\n"
-                "7. Critical layout guidelines per component\n"
-                "8. Risk assessment and mitigation strategies"
-            ),
-            system_prompt=(
-                "You are a senior PCB design engineer with 20+ years of experience "
-                "in rapid prototyping using LPKF equipment. Provide thorough, "
-                "actionable analysis with specific numerical recommendations."
-            ),
-            max_tokens=4096,
-            temperature=0.3,
+        report_prompt = (
+            f"Hardware description: {description}\n\n"
+            f"Generated BOM: {json.dumps(artifacts['bom'], indent=2)}\n\n"
+            "Provide a comprehensive engineering analysis report covering:\n"
+            "1. Component selection rationale and alternatives\n"
+            "2. Power domain analysis (voltage rails, current budget)\n"
+            "3. Signal integrity considerations\n"
+            "4. LPKF ProtoLaser S4 manufacturability assessment\n"
+            "5. Thermal management recommendations\n"
+            "6. Suggested PCB stackup and layer assignment\n"
+            "7. Critical layout guidelines per component\n"
+            "8. Risk assessment and mitigation strategies"
         )
+        sys_prompt = (
+            "You are a senior PCB design engineer with 20+ years of experience "
+            "in rapid prototyping using LPKF equipment. Provide thorough, "
+            "actionable analysis with specific numerical recommendations."
+        )
+        
+        if os.environ.get("PCB_AI_LLM_PROVIDER") and os.environ.get("PCB_AI_LLM_PROVIDER") != "anna":
+            from pcbai.llm.provider import get_provider
+            provider = get_provider()
+            report = provider.chat([
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": report_prompt}
+            ], temperature=0.3, max_tokens=4096)
+        else:
+            report = sample(
+                invoke_id,
+                report_prompt,
+                system_prompt=sys_prompt,
+                max_tokens=4096,
+                temperature=0.3,
+            )
         artifacts["analysis_report"] = report
     except Exception as e:
         artifacts["analysis_report"] = f"Report generation failed: {e}"
