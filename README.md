@@ -1,255 +1,52 @@
 # PCB Designer AI Agent
 
-An open-source agentic pipeline that turns a natural-language hardware description into a manufacturable PCB. The system automates:
+End-to-End PCB Design Assistant powered by LLMs.
+This project has been ported to **Anna OS** as a seamless, browser-based hardware design environment!
 
-1. Requirement → Component selection (BOM)
-2. Datasheet retrieval → Package extraction → Footprint generation (`.kicad_mod`)
-3. Schematic synthesis (netlist) via SKiDL with reference circuits
-4. PCB placement and routing via KiCad 10 `pcbnew` Python API
-5. Gerber generation via `kicad-cli`
+## How it works
 
-**Status:** working scaffold with KiCad 10 integration, parametric footprint generators for all common packages, datasheet PDF extraction, and a full test suite (26 tests, all passing against KiCad 10.0.6).
+The agent takes a natural-language description (e.g., "Design a board with an ESP32, an IMU sensor, a LiPo battery charger, a USB-C port, a 3.3V LDO, and an SD card slot"), and automatically:
+1. Parses the requirements using an LLM (or a fallback keyword scanner).
+2. Maps keywords to real physical components (BOM generation).
+3. Synthesizes a schematic netlist.
+4. Generates standard IPC footprint geometries (SOIC, LQFP, SOT-223, USB-C, etc.).
+5. Renders a complete, routing-ready `.kicad_pcb` board file directly in the browser!
 
-## Why
+## Running the App locally
 
-- Speed up concept-to-board by automating tedious steps.
-- Keep humans in the loop for safety while leveraging LLMs/CV for datasheet understanding.
-- Vendor-neutral core with adapters for popular EDA tools.
-
-## Architecture
-
-```
-requirements_parser → bom_generator → datasheet_fetcher
-    → footprint_generator → skidl_schematic → pcb_router → gerber_exporter
-```
-
-- **Core:** config + structured logging
-- **LLM providers:** OpenAI / Ollama (pluggable)
-- **KiCad backend:** first-class, tested against KiCad 10.0.6
-- **Adapters for Altium / Cadence Allegro:** planned
-
-## Project Structure
-
-```text
-pcb-designer-ai-agent/
-├─ README.md
-├─ LICENSE
-├─ pyproject.toml
-├─ src/pcbai/
-│  ├─ core/
-│  │  ├─ config.py
-│  │  └─ logger.py
-│  ├─ llm/
-│  │  └─ provider.py
-│  ├─ steps/
-│  │  ├─ requirements_parser.py
-│  │  ├─ bom_generator.py          ← Octopart API + local catalog fallback
-│  │  ├─ datasheet_fetcher.py
-│  │  ├─ datasheet_package_extractor.py  ← PDF → package dims (OCR + LLM Vision)
-│  │  ├─ footprint_generator.py    ← SMD R/C and SOIC
-│  │  ├─ footprint_bga.py          ← BGA (JEDEC row letters)
-│  │  ├─ footprint_dip.py          ← DIP / THT
-│  │  ├─ footprint_qfn_qfp.py      ← QFN + QFP (4-sided, optional EP)
-│  │  ├─ footprint_usbc.py         ← USB-C 24-pin receptacle
-│  │  ├─ footprint_header.py       ← Pin headers (THT)
-│  │  ├─ footprint_custom.py       ← Arbitrary pad layouts from JSON
-│  │  ├─ skidl_schematic.py        ← SKiDL netlist + reference circuits
-│  │  ├─ pcb_router.py             ← KiCad 10 pcbnew integration
-│  │  └─ gerber_exporter.py
-│  └─ pipeline/
-│     └─ cli.py                    ← Click CLI entrypoint
-└─ tests/
-   ├─ test_bga.py
-   ├─ test_dip.py
-   ├─ test_datasheet_extractor.py
-   └─ test_updated_modules.py      ← pcb_router, BOM, SKiDL, footprints
-```
-
-## Requirements
-
-- Python 3.10+
-- [KiCad 10](https://www.kicad.org/download/) — required for `pcb_router` (`pcbnew` Python API must be importable)
-
-Check KiCad is available:
+To run the UI and the backend locally:
 
 ```bash
-kicad-cli --version
-python3 -c "import pcbnew; print(pcbnew.GetBuildVersion())"
+# 1. Start the Anna App developer sandbox
+cd anna-app
+anna-app dev
 ```
 
-On Ubuntu/Debian, `pcbnew.py` is typically at `/usr/lib/python3/dist-packages/pcbnew.py`.
+This will spin up a local UI at `http://localhost:5173` (or similar).
 
-## Install
+### Using Local LLMs (No Tokens Needed!)
+
+If you do not have Anna OS quota (tokens), the agent gracefully falls back to a built-in keyword scanner. However, you can configure Anna OS to route LLM generation requests to your own local models!
+
+1. Download [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/).
+2. Load a model (like Llama 3) and start the local Inference Server on port `1234` or `11434`.
+3. Configure your local Anna runtime to point to your local endpoint!
+
+## Running the Reef Evaluation Harness
+
+We include a local testing harness powered by [Reef](https://github.com/reef-ai) to evaluate how well different LLMs extract footprint package parameters from PDF datasheets.
 
 ```bash
-pip install -e .
-# optional extras:
-pip install -e ".[llm]"     # OpenAI / tiktoken
-pip install -e ".[vision]"  # pdfminer, pytesseract, Pillow
-pip install -e ".[eda]"     # SKiDL
-pip install -e ".[test]"    # pytest
+cd reef_harness
+reef serve -c serve.yaml
 ```
-
-## Usage
-
-### Generate footprints
-
-**SMD resistor/capacitor (0603):**
-```bash
-pcbai footprint --type smd_rc --name R_0603 \
-  --body-l 1.6 --body-w 0.8 --pad-l 0.9 --pad-w 0.8 --gap 0.8 --out build/
-```
-
-**14-pin SOIC:**
-```bash
-pcbai footprint --type soic --name SOIC-14_3.9x8.7mm_P1.27mm \
-  --pins 14 --pitch 1.27 --body-l 8.7 --body-w 3.9 \
-  --pad-l 1.5 --pad-w 0.6 --row-offset 2.3 --out build/
-```
-
-**32-pin QFN with exposed pad:**
-```bash
-pcbai footprint --type qfn --name QFN-32_5x5mm_P0.5mm \
-  --pins 32 --pitch 0.5 --body-l 5.0 --body-w 5.0 \
-  --pad-l 0.75 --pad-w 0.35 --ep-l 3.5 --ep-w 3.5 --out build/
-```
-
-**BGA:**
-```bash
-pcbai footprint --type bga --name BGA-64_8x8 \
-  --rows 8 --cols 8 --pitch 1.0 --body-l 10 --body-w 10 --pad-dia 0.5 --out build/
-```
-
-**USB-C receptacle:**
-```bash
-pcbai footprint --type usbc --name USB_C_Receptacle --out build/
-```
-
-**Pin header:**
-```bash
-pcbai footprint --type header --name PinHeader_1x10 \
-  --pins 10 --pitch 2.54 --pad-dia 1.6 --drill-dia 0.8 --out build/
-```
-
-All output `.kicad_mod` files go into `build/` and can be dropped into any KiCad footprint library.
-
-### Generate a BOM
-
-```bash
-pcbai bom "ESP32 WiFi board with buck converter and LiPo charger" --out build/
-```
-
-### Extract package from datasheet PDF
-
-```bash
-pcbai extract-package path/to/datasheet.pdf --out build/package_guess.json
-```
-
-### End-to-end synthesis
-
-```bash
-pcbai synthesize "STM32 microcontroller with 3.3V buck and USB-C" --out build/
-```
-
-Produces `build/netlist.txt` (SKiDL netlist), then use `pcb_router` to generate `board.kicad_pcb`.
-
-## PCB Router (KiCad 10)
-
-`pcb_router.route_pcb()` generates a Python script that uses the `pcbnew` API to:
-
-1. Create a new `BOARD`
-2. Register nets from the netlist
-3. **Instantiate and place footprints**: Loads `.kicad_mod` files from the `footprints/` directory.
-4. **Smart Placement**: Uses heuristic algorithms to automatically cluster components (e.g. snapping decoupling capacitors directly to MCU power pins) based on netlist relationships.
-5. **Library Management**: Generates a project-level `fp-lib-table` so KiCad recognizes local footprints immediately.
-6. Saves a valid `.kicad_pcb` file.
-7. Exports a `.dsn` file for professional auto-routing via **FreeRouting**.
-
-### Auto-Routing
-
-**Option 1: FreeRouting (Recommended)**
-The pipeline automatically exports a Specctra `.dsn` file. For production-grade routing with full obstacle avoidance and via generation, install [FreeRouting](https://freerouting.org/), open the `.dsn` file, let it run, and export the resulting `.ses` file back into your `.kicad_pcb` board.
-
-**Option 2: Native Python Router (Experimental)**
-The agent includes a highly experimental, naive Manhattan router written natively in Python using the `pcbnew` API. **Warning:** It has no obstacle avoidance and will create short circuits. It is intended purely as a scaffold for developing LLM-guided ML routers in the future.
-To test it, set the environment variable:
-```bash
-export PCB_AI_EXPERIMENTAL_ROUTER=1
-pcbai synthesize "ESP32 board with 3.3V buck converter"
-```
-
-```python
-from pcbai.steps.pcb_router import route_pcb
-
-result = route_pcb(
-    netlist={"nets": [{"name": "VCC"}, {"name": "GND"}], "components": [...]},
-    output_dir="build/"
-)
-print(result["status"])   # "routed"
-print(result["board_file"])  # build/board.kicad_pcb
-```
-
-## Configuration
-
-The agent uses LLM providers for parsing text, generating BOMs, and extracting package dimensions from datasheets.
-
-### Available Providers
-Set the `PCB_AI_LLM_PROVIDER` environment variable to choose a provider:
-
-| Provider | Value | Environment Variables Required |
-|----------|-------|--------------------------------|
-| **LM Studio** (Local) | `lmstudio` | `LMSTUDIO_URL` (default: `http://localhost:1234`) |
-| **Ollama** (Local) | `ollama` | `OLLAMA_URL` (default: `http://localhost:11434`) |
-| **OpenAI** | `openai` | `OPENAI_API_KEY` |
-| **Anthropic (Claude)** | `claude` | `ANTHROPIC_API_KEY` |
-| **Google Gemini** | `gemini` | `GEMINI_API_KEY` |
-| **Dummy** | `dummy` | None (returns static responses) |
-
-### Global LLM Settings
-You can customize the model and parameters across all providers using:
-* `PCB_AI_MODEL` - E.g. `gpt-4o`, `claude-3-5-sonnet-20240620`, `gemini-1.5-pro`
-* `PCB_AI_MAX_TOKENS` - Override the max output tokens limit
-* `PCB_AI_TEMPERATURE` - Override the default generation temperature (default 0.2)
-
-**Example (Local Llama 3 via Ollama):**
-```bash
-export PCB_AI_LLM_PROVIDER="ollama"
-export PCB_AI_MODEL="llama3"
-export PCB_AI_MAX_TOKENS="1024"
-pcbai bom "ESP32 board with 3.3V buck converter"
-```
-
-**Example (Online Gemini 1.5):**
-```bash
-export PCB_AI_LLM_PROVIDER="gemini"
-export GEMINI_API_KEY="AIzaSy..."
-export PCB_AI_MODEL="gemini-1.5-pro"
-pcbai synthesize "ESP32 board with 3.3V buck converter"
-```
-
-### Other Integrations
-| Variable | Purpose |
-|---|---|
-| `OCTOPART_API_KEY` | Live BOM component and package lookup via Octopart GraphQL API. Without this, the BOM generator falls back to a limited local dictionary. |
-
-## Running Tests
-
-```bash
-pip install -e ".[test]"
-pytest tests/ -v
-```
-
-All 26 tests pass against KiCad 10.0.6. Tests that exercise `pcb_router` mock `subprocess.run` by default; to run against a live KiCad installation, ensure `pcbnew` is importable.
 
 ## Contributing
 
 PRs welcome. Priority areas:
-
 - Datasheet parsers and CV feature extractors
-- Additional package generators (TO-220, SOT-23, etc.)
 - SKiDL schematic reference circuit templates
 - Freerouting DSN/SES integration
-- EDA tool adapters (Altium, Cadence Allegro)
 
 ## License
 
