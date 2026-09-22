@@ -245,6 +245,13 @@ def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": description}
             ], temperature=0.1, max_tokens=1024)
+            raw = raw.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            if raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
         else:
             raw = sample(
                 invoke_id,

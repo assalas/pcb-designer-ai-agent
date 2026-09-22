@@ -172,8 +172,13 @@ class GeminiProvider(LLMProvider):
             }
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+        print(f"DEBUG: Requesting {url.split('key=')[0]} with payload size {len(str(payload))}")
         r = requests.post(url, json=payload, timeout=60)
-        r.raise_for_status()
+        print(f"DEBUG: Response status {r.status_code}")
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            raise RuntimeError(f"{e} | Response Body: {r.text}")
         return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
 
     def complete(self, prompt: str, **kwargs) -> str:
