@@ -1,45 +1,40 @@
 # PCB Designer AI Agent
 
 End-to-End PCB Design Assistant powered by LLMs.
-This project has been ported to **Anna OS** as a seamless, browser-based hardware design environment!
+
+This is a **universal** AI hardware agent built in Python. It supports any major LLM provider (Claude, Gemini, OpenAI) as well as local models (Ollama, LM Studio) to autonomously generate schematics and PCB layouts from natural language.
+
+*Note: We have also tested and ported this agent as a seamless, browser-based hardware design environment for **Anna OS**! (See deployment section below).* 
 
 ## How it works
 
 The agent takes a natural-language description (e.g., "Design a board with an ESP32, an IMU sensor, a LiPo battery charger, a USB-C port, a 3.3V LDO, and an SD card slot"), and automatically:
-1. Parses the requirements using an LLM (or a fallback keyword scanner).
+1. Parses the requirements using an LLM.
 2. Maps keywords to real physical components (BOM generation).
 3. Synthesizes a schematic netlist.
 4. Generates standard IPC footprint geometries (SOIC, LQFP, SOT-223, USB-C, etc.).
-5. Renders a complete, routing-ready `.kicad_pcb` board file directly in the browser!
+5. Renders a complete, routing-ready `.kicad_pcb` board file!
 
-## Running the App locally
+## Getting Started (Universal Usage)
 
-To run the UI and the backend locally:
+The agent runs as a standalone JSON-RPC service. You can pipe a prompt directly to it.
 
-```bash
-# 1. Start the Anna App developer sandbox
-cd anna-app
-anna-app dev
-```
+### 1. Configure your LLM Provider
 
-This will spin up a local UI at `http://localhost:5173` (or similar).
-
-### Using Local LLMs & Cloud Providers (Bring Your Own Key)
-
-If you do not have Anna OS quota (tokens), you can bypass the Anna OS sampling system completely by setting environment variables to use your own API keys for Gemini, Claude, or OpenAI, or you can use local models like LM Studio and Ollama.
-
-**To use Gemini:**
-```bash
-export PCB_AI_LLM_PROVIDER=gemini
-export GEMINI_API_KEY=your_api_key_here
-export PCB_AI_MODEL=gemini-3.6-flash  # or gemini-1.5-pro
-```
+The agent is model-agnostic. You must set environment variables to tell the agent which API to use. 
 
 **To use Anthropic (Claude):**
 ```bash
 export PCB_AI_LLM_PROVIDER=claude
 export ANTHROPIC_API_KEY=your_api_key_here
 export PCB_AI_MODEL=claude-3-5-sonnet-20240620
+```
+
+**To use Gemini:**
+```bash
+export PCB_AI_LLM_PROVIDER=gemini
+export GEMINI_API_KEY=your_api_key_here
+export PCB_AI_MODEL=gemini-3.6-flash
 ```
 
 **To use OpenAI:**
@@ -52,7 +47,28 @@ export PCB_AI_MODEL=gpt-4o-mini
 **To use Local Models (LM Studio / Ollama):**
 ```bash
 export PCB_AI_LLM_PROVIDER=lmstudio  # or ollama
+# Ensure your local server is running on port 1234 (LM Studio) or 11434 (Ollama)
 ```
+
+### 2. Run the Agent Locally
+
+You can interact with the agent using the provided `test_rpc.py` script, which sends a test prompt to the pipeline:
+
+```bash
+python3 test_rpc.py
+```
+
+This will execute the agent pipeline end-to-end and output the generated BOM, Netlist, and Board files in JSON format!
+
+## Anna OS Integration
+
+While the agent is completely universal, it can also be deployed seamlessly to the Anna OS App Store.
+
+```bash
+cd anna-app
+anna-app dev
+```
+This spins up a local UI at `http://localhost:5173`. When deployed this way, if no API keys are provided, it can gracefully fallback to using Anna OS quota/tokens.
 
 ## Running the Reef Evaluation Harness
 
