@@ -1,6 +1,8 @@
 import { AnnaAppRuntime } from "/static/anna-apps/_sdk/latest/index.js";
 
-const TOOL_ID = "tool-assalas-pcb-designer-nefeer3m";
+const EXECUTA_HANDLE = "pcb-designer";
+const DEV_FALLBACK_TOOL_ID = "tool-assalas-pcb-designer-nefeer3m";
+const TOOL_ID = window.__ANNA_TOOL_IDS__?.[EXECUTA_HANDLE] || DEV_FALLBACK_TOOL_ID;
 
 async function main() {
   const statusBadge = document.getElementById("status-badge");
@@ -53,7 +55,7 @@ async function main() {
 
       // Render clickable mock files for standard outputs
       const files = ["board.kicad_pcb", "schematic.kicad_sch", "bom.json"];
-      const zip = new JSZip();
+      const zip = new window.JSZip();
       const folder = zip.folder("pcb_project");
       
       files.forEach(f => {

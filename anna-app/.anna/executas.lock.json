@@ -1,0 +1,11 @@
+{
+  "$schema": "anna-executas-lock/v1",
+  "host": "https://anna.partners",
+  "executas": {
+    "pcb-designer": {
+      "tool_id": "tool-assalas-pcb-designer-nefeer3m",
+      "path": "./executas/pcb-designer",
+      "source": "cut"
+    }
+  }
+}

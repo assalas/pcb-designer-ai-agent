@@ -2,6 +2,17 @@
   "slug": "pcb-designer-app",
   "name": "pcb-designer-app",
   "tagline": "End-to-End AI PCB Designer",
-  "description": "An end-to-end PCB design assistant that structures requirements, parses PDFs, generates BOMs, and routes boards for LPKF rapid prototyping.",
-  "category": "productivity"
+  "description": "PCB Designer AI is an end-to-end intelligent assistant for electronics engineers and makers. It seamlessly translates your natural language hardware requirements into structured components, parses complex PDFs to extract package dimensions, dynamically searches for parts, and automatically generates both BOMs and netlists. The App also features an integrated routing engine capable of laying out boards designed specifically for LPKF rapid prototyping. Built to save hours of manual datasheet reading and footprint generation, it’s the ultimate companion for rapid hardware iteration.",
+  "about": "PCB Designer AI is an end-to-end intelligent assistant for electronics engineers and makers. It seamlessly translates your natural language hardware requirements into structured components, parses complex PDFs to extract package dimensions, dynamically searches for parts, and automatically generates both BOMs and netlists. The App also features an integrated routing engine capable of laying out boards designed specifically for LPKF rapid prototyping. Built to save hours of manual datasheet reading and footprint generation, it’s the ultimate companion for rapid hardware iteration.",
+  "category": "productivity",
+  "logo_file": "assets/logo.jpg",
+  "screenshots": [
+    "assets/screenshot1.jpg",
+    "assets/screenshot2.jpg"
+  ],
+  "bundled_executas": {
+    "pcb-designer": {
+      "path": "./executas/pcb-designer"
+    }
+  }
 }

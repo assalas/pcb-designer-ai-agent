@@ -15,6 +15,7 @@ import queue
 import threading
 import tempfile
 import traceback
+from dataclasses import asdict
 # The pcbai module is now bundled directly in this folder.
 
 # ── stderr helper (stdout is reserved for JSON-RPC) ────────

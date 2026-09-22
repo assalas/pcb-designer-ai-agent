@@ -3,12 +3,47 @@
   "tool_id": "tool-assalas-pcb-designer-nefeer3m",
   "name": "pcb-designer",
   "display_name": "PCB Designer AI Agent",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Professional PCB design agent for rapid prototyping on Anna OS. 1.0.7 adds ESP32 support.",
   "author": "assalas",
   "type": "tool",
   "command": ["uv", "run", "python3", "plugin.py"],
   "host_capabilities": ["llm.sample", "llm.complete"],
+  "distribution": {
+    "active": "binary",
+    "profiles": {
+      "local": {
+        "type": "local",
+        "supports_protocol": true
+      },
+      "binary": {
+        "type": "binary",
+        "supports_protocol": true,
+        "binary_artifacts": {
+          "linux-x86_64": {
+            "path": "dist/pcb-designer-linux-x86_64.tar.gz",
+            "entrypoint": "pcb-designer-plugin",
+            "format": "tar.gz"
+          },
+          "darwin-arm64": {
+            "path": "dist/pcb-designer-darwin-arm64.tar.gz",
+            "entrypoint": "pcb-designer-plugin",
+            "format": "tar.gz"
+          },
+          "darwin-x86_64": {
+            "path": "dist/pcb-designer-darwin-x86_64.tar.gz",
+            "entrypoint": "pcb-designer-plugin",
+            "format": "tar.gz"
+          },
+          "windows-x86_64": {
+            "path": "dist/pcb-designer-windows-x86_64.zip",
+            "entrypoint": "pcb-designer-plugin.exe",
+            "format": "zip"
+          }
+        }
+      }
+    }
+  },
   "credentials": [
     {
       "name": "OCTOPART_API_KEY",

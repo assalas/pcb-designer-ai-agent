@@ -2,7 +2,8 @@
   "schema": 2,
   "required_executas": [
     {
-      "tool_id": "tool-assalas-pcb-designer-nefeer3m"
+      "tool_id": "bundled:pcb-designer",
+      "version": "latest"
     }
   ],
   "tags": ["pcb", "kicad", "hardware", "engineering"],
@@ -10,7 +11,7 @@
     "bundle": {
       "format": "static-spa",
       "entry": "index.html",
-      "external_origins": []
+      "external_origins": ["https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"]
     },
     "views": [
       {
@@ -22,7 +23,7 @@
       }
     ],
     "host_api": {
-      "tools": ["tool-assalas-pcb-designer-nefeer3m"],
+      "tools": ["required:bundled:pcb-designer"],
       "storage": ["get", "set"],
       "window": ["set_title", "ready"],
       "llm": ["sample", "complete"]
