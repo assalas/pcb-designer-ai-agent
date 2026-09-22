@@ -24,13 +24,35 @@ anna-app dev
 
 This will spin up a local UI at `http://localhost:5173` (or similar).
 
-### Using Local LLMs (No Tokens Needed!)
+### Using Local LLMs & Cloud Providers (Bring Your Own Key)
 
-If you do not have Anna OS quota (tokens), the agent gracefully falls back to a built-in keyword scanner. However, you can configure Anna OS to route LLM generation requests to your own local models!
+If you do not have Anna OS quota (tokens), you can bypass the Anna OS sampling system completely by setting environment variables to use your own API keys for Gemini, Claude, or OpenAI, or you can use local models like LM Studio and Ollama.
 
-1. Download [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/).
-2. Load a model (like Llama 3) and start the local Inference Server on port `1234` or `11434`.
-3. Configure your local Anna runtime to point to your local endpoint!
+**To use Gemini:**
+```bash
+export PCB_AI_LLM_PROVIDER=gemini
+export GEMINI_API_KEY=your_api_key_here
+export PCB_AI_MODEL=gemini-3.6-flash  # or gemini-1.5-pro
+```
+
+**To use Anthropic (Claude):**
+```bash
+export PCB_AI_LLM_PROVIDER=claude
+export ANTHROPIC_API_KEY=your_api_key_here
+export PCB_AI_MODEL=claude-3-5-sonnet-20240620
+```
+
+**To use OpenAI:**
+```bash
+export PCB_AI_LLM_PROVIDER=openai
+export OPENAI_API_KEY=your_api_key_here
+export PCB_AI_MODEL=gpt-4o-mini
+```
+
+**To use Local Models (LM Studio / Ollama):**
+```bash
+export PCB_AI_LLM_PROVIDER=lmstudio  # or ollama
+```
 
 ## Running the Reef Evaluation Harness
 
