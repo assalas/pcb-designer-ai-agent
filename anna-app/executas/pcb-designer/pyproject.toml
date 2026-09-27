@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pcb-designer-ai-agent"
-version = "0.0.1"
+version = "0.2.1"
 description = "Agentic pipeline from natural language to PCB (BOM → footprints → schematic → routing → Gerbers)"
 authors = [{ name = "PCB Designer AI Agent Contributors" }]
 readme = "README.md"
