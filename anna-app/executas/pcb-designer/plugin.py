@@ -476,70 +476,62 @@ def _tool_route_pcb(args: dict, ctx: dict) -> dict:
 
 
 def _tool_full_pipeline(args: dict, ctx: dict) -> dict:
-    """Run the complete pipeline with deep analysis at each step."""
+    """Run the complete pipeline using the new end-to-end compiler."""
     description = args["description"]
     invoke_id = ctx.get("invoke_id", "")
     artifacts: Dict[str, Any] = {}
 
-    # Step 1: Parse requirements
-    log("Pipeline Step 1/4: Parsing requirements...")
-    req_result = _tool_parse_requirements({"description": description}, ctx)
-    artifacts["requirements"] = req_result["data"]
-
-    # Step 2: Generate BOM
-    log("Pipeline Step 2/4: Generating BOM...")
-    bom_result = _tool_generate_bom(
-        {"requirements_json": json.dumps(req_result["data"])}, ctx
-    )
-    artifacts["bom"] = bom_result["data"]
-
-    # Step 3: Synthesize netlist
-    log("Pipeline Step 3/4: Synthesizing netlist...")
-    netlist_result = _tool_synthesize_netlist(
-        {"bom_json": json.dumps(bom_result["data"]["bom"])}, ctx
-    )
-    artifacts["netlist"] = netlist_result["data"]
-
-    # Step 4: Generate analysis report via sampling
-    log("Pipeline Step 4/4: Generating comprehensive analysis report...")
-    try:
-        report_prompt = (
-            f"Hardware description: {description}\n\n"
-            f"Generated BOM: {json.dumps(artifacts['bom'], indent=2)}\n\n"
-            "Provide a comprehensive engineering analysis report covering:\n"
-            "1. Component selection rationale and alternatives\n"
-            "2. Power domain analysis (voltage rails, current budget)\n"
-            "3. Signal integrity considerations\n"
-            "4. LPKF ProtoLaser S4 manufacturability assessment\n"
-            "5. Thermal management recommendations\n"
-            "6. Suggested PCB stackup and layer assignment\n"
-            "7. Critical layout guidelines per component\n"
-            "8. Risk assessment and mitigation strategies"
-        )
-        sys_prompt = (
-            "You are a senior PCB design engineer with 20+ years of experience "
-            "in rapid prototyping using LPKF equipment. Provide thorough, "
-            "actionable analysis with specific numerical recommendations."
-        )
-        
-        if os.environ.get("PCB_AI_LLM_PROVIDER") and os.environ.get("PCB_AI_LLM_PROVIDER") != "anna":
-            from pcbai.llm.provider import get_provider
-            provider = get_provider()
-            report = provider.chat([
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": report_prompt}
-            ], temperature=0.3, max_tokens=4096)
-        else:
-            report = sample(
-                invoke_id,
-                report_prompt,
-                system_prompt=sys_prompt,
-                max_tokens=4096,
-                temperature=0.3,
+    log(f"Pipeline: Compiling design for prompt: {description[:80]}...")
+    
+    from pcbai.steps.design_compiler import compile_design
+    import tempfile
+    
+    # Run the full pipeline in a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
+            result = compile_design(description, tmpdir)
+            
+            # Read the generated files to pass them back to the frontend
+            with open(result["pcb"], "r", encoding="utf-8") as f:
+                artifacts["pcb"] = f.read()
+                
+            with open(result["sch"], "r", encoding="utf-8") as f:
+                artifacts["sch"] = f.read()
+                
+            with open(os.path.join(tmpdir, "bom.json"), "r", encoding="utf-8") as f:
+                artifacts["bom_json"] = f.read()
+                artifacts["bom"] = json.loads(artifacts["bom_json"])
+                
+            # For backward compatibility with the report UI, run the analysis
+            log("Generating engineering analysis report...")
+            report_prompt = (
+                f"Hardware description: {description}\n\n"
+                f"Generated BOM: {artifacts['bom_json']}\n\n"
+                "Provide a short engineering analysis report."
             )
-        artifacts["analysis_report"] = report
-    except Exception as e:
-        artifacts["analysis_report"] = f"Report generation failed: {e}"
+            sys_prompt = "You are a senior PCB design engineer."
+            
+            if os.environ.get("PCB_AI_LLM_PROVIDER") and os.environ.get("PCB_AI_LLM_PROVIDER") != "anna":
+                from pcbai.llm.provider import get_provider
+                provider = get_provider()
+                report = provider.chat([
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": report_prompt}
+                ], temperature=0.3, max_tokens=1000)
+            else:
+                report = sample(
+                    invoke_id,
+                    report_prompt,
+                    system_prompt=sys_prompt,
+                    max_tokens=1000,
+                    temperature=0.3,
+                )
+            artifacts["analysis_report"] = report
+            
+        except Exception as e:
+            log(f"Pipeline failed: {e}")
+            artifacts["analysis_report"] = f"Pipeline failed: {e}"
+            return {"success": False, "error": str(e)}
 
     return {
         "success": True,

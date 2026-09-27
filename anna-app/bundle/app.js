@@ -122,6 +122,7 @@ async function main() {
         }
 
         if (f.endsWith(".kicad_pcb")) {
+            if (result.pcb) { content = result.pcb; folder.file(f, content); return; }
             let pcbContent = `(kicad_pcb (version 20211014) (generator pcbnew) (general) (paper "A4")\n`;
             if (result.netlist && result.netlist.netlist && result.netlist.netlist.components) {
                 result.netlist.netlist.components.forEach((comp, idx) => {
@@ -138,9 +139,13 @@ async function main() {
             pcbContent += `)\n`;
             content = pcbContent;
         } else if (f.endsWith(".kicad_sch")) {
+            if (result.sch) { content = result.sch; folder.file(f, content); return; }
             content = `(kicad_sch (version 20211123) (generator eeschema)\n  (paper "A4")\n)`;
-        } else {
+        } else if (f.endsWith("bom.json")) {
+            if (result.bom_json) { content = result.bom_json; folder.file(f, content); return; }
             content = JSON.stringify(result.bom || {}, null, 2);
+        } else {
+            content = "unknown file";
         }
         
         folder.file(f, content);
