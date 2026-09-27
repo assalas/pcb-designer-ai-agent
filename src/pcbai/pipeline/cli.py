@@ -24,6 +24,33 @@ def main():
     """PCB AI Agent CLI"""
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# design  – Full end-to-end pipeline (NEW)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@main.command()
+@click.argument("description", nargs=-1)
+@click.option("--out", "outdir", type=click.Path(), default="build")
+def design(description: str, outdir: str):
+    """Full end-to-end PCB design: prompt → BOM → schematic → PCB → Gerbers → zip."""
+    from pcbai.steps.design_compiler import compile_design
+    text = " ".join(description)
+    if not text.strip():
+        raise click.UsageError("Please provide a design description.")
+    click.echo(f"[pcbai] Compiling design: {text[:80]}…")
+    result = compile_design(text, outdir)
+    click.echo(f"[pcbai] ✅ Design complete!")
+    click.echo(f"  BOM        : {len(result['bom'])} components")
+    click.echo(f"  Schematic  : {result['sch']}")
+    click.echo(f"  PCB        : {result['pcb']}")
+    click.echo(f"  Gerbers    : {result['gerbers']}")
+    click.echo(f"  ZIP        : {result['zip']}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# bom
+# ─────────────────────────────────────────────────────────────────────────────
+
 @main.command()
 @click.argument("description", nargs=-1)
 @click.option("--out", "outdir", type=click.Path(), default="build")
@@ -40,8 +67,14 @@ def bom(description: str, outdir: str):
     click.echo(f"BOM written to {path}")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# footprint
+# ─────────────────────────────────────────────────────────────────────────────
+
 @main.command()
-@click.option("--type", "ftype", type=click.Choice(["smd_rc", "soic", "qfn", "qfp", "bga", "dip", "usbc", "header", "custom"]), required=True)
+@click.option("--type", "ftype", type=click.Choice([
+    "smd_rc", "soic", "qfn", "qfp", "bga", "dip", "usbc", "header", "custom"
+]), required=True)
 @click.option("--name", required=True)
 @click.option("--out", "outdir", type=click.Path(), default="build")
 # Common
@@ -69,7 +102,9 @@ def bom(description: str, outdir: str):
 @click.option("--row-spacing", type=float)
 # Custom specific
 @click.option("--coordinates", type=str)
-def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_l: float, body_w: float, pad_l: float, pad_w: float, gap: float, row_offset: float, ep_l: float, ep_w: float, gullwing_ext: float, rows: int, cols: int, pad_dia: float, drill_dia: float, row_spacing: float, coordinates: str):
+def footprint(ftype, name, outdir, pins, pitch, body_l, body_w, pad_l, pad_w,
+              gap, row_offset, ep_l, ep_w, gullwing_ext, rows, cols, pad_dia,
+              drill_dia, row_spacing, coordinates):
     """Generate a KiCad footprint (.kicad_mod)."""
     os.makedirs(outdir, exist_ok=True)
     if ftype == "smd_rc":
@@ -82,45 +117,40 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         path = write_kicad_mod_soic(outdir, params)
     elif ftype == "qfn":
         assert all(v is not None for v in [pins, pitch, body_l, body_w, pad_l, pad_w]), "Missing QFN params"
-        from pcbai.steps.footprint_qfn_qfp import QfnParams, generate_qfn, KiCadModuleWriter
         params = QfnParams(name=name, pins=pins, pitch=pitch, body_l=body_l, body_w=body_w, pad_l=pad_l, pad_w=pad_w, ep_l=ep_l, ep_w=ep_w)
         content = generate_qfn(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     elif ftype == "qfp":
         assert all(v is not None for v in [pins, pitch, body_l, body_w, pad_l, pad_w]), "Missing QFP params"
-        from pcbai.steps.footprint_qfn_qfp import QfpParams, generate_qfp, KiCadModuleWriter
         params = QfpParams(name=name, pins=pins, pitch=pitch, body_l=body_l, body_w=body_w, pad_l=pad_l, pad_w=pad_w, gullwing_ext=gullwing_ext or 0.0)
         content = generate_qfp(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     elif ftype == "bga":
         assert all(v is not None for v in [rows, cols, pitch, body_l, body_w, pad_dia]), "Missing BGA params"
-        from pcbai.steps.footprint_bga import BgaParams, generate_bga, KiCadModuleWriter
+        from pcbai.steps.footprint_bga import BgaParams, generate_bga, KiCadModuleWriter as BW
         params = BgaParams(name=name, rows=rows, cols=cols, pitch=pitch, body_l=body_l, body_w=body_w, pad_dia=pad_dia)
         content = generate_bga(params)
-        path = KiCadModuleWriter(outdir).write(name, content)
+        path = BW(outdir).write(name, content)
     elif ftype == "dip":
         assert all(v is not None for v in [pins, pitch, row_spacing, body_l, body_w, pad_dia, drill_dia]), "Missing DIP params"
-        from pcbai.steps.footprint_dip import DipParams, generate_dip, KiCadModuleWriter
+        from pcbai.steps.footprint_dip import DipParams, generate_dip, KiCadModuleWriter as DW
         params = DipParams(name=name, pins=pins, pitch=pitch, row_spacing=row_spacing, body_l=body_l, body_w=body_w, pad_dia=pad_dia, drill_dia=drill_dia)
         content = generate_dip(params)
-        path = KiCadModuleWriter(outdir).write(name, content)
+        path = DW(outdir).write(name, content)
     elif ftype == "usbc":
         from pcbai.steps.footprint_usbc import UsbcParams, generate_usbc
-        from pcbai.steps.footprint_qfn_qfp import KiCadModuleWriter
         params = UsbcParams(name=name)
         content = generate_usbc(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     elif ftype == "header":
         assert all(v is not None for v in [pins, pitch, pad_dia, drill_dia]), "Missing Header params"
         from pcbai.steps.footprint_header import HeaderParams, generate_header
-        from pcbai.steps.footprint_qfn_qfp import KiCadModuleWriter
         params = HeaderParams(name=name, pins=pins, pitch=pitch, pad_dia=pad_dia, drill_dia=drill_dia)
         content = generate_header(params)
         path = KiCadModuleWriter(outdir).write(name, content)
     elif ftype == "custom":
         assert coordinates is not None, "Missing coordinates for custom footprint"
         from pcbai.steps.footprint_custom import CustomParams, generate_custom
-        from pcbai.steps.footprint_qfn_qfp import KiCadModuleWriter
         params = CustomParams(name=name, coordinates=coordinates)
         content = generate_custom(params)
         path = KiCadModuleWriter(outdir).write(name, content)
@@ -128,6 +158,10 @@ def footprint(ftype: str, name: str, outdir: str, pins: int, pitch: float, body_
         raise click.ClickException("Unsupported type")
     click.echo(f"Wrote {path}")
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# extract_package
+# ─────────────────────────────────────────────────────────────────────────────
 
 @main.command()
 @click.argument("pdf", type=click.Path(exists=True))
@@ -137,10 +171,13 @@ def extract_package(pdf: str, out_json: str):
     os.makedirs(os.path.dirname(out_json), exist_ok=True)
     from pcbai.steps.datasheet_package_extractor import extract_package_params_from_pdf, save_guess_json
     guess = extract_package_params_from_pdf(pdf)
-    from pcbai.steps.datasheet_package_extractor import save_guess_json
     save_guess_json(guess, out_json)
     click.echo(f"Saved package guess to {out_json}")
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# synthesize
+# ─────────────────────────────────────────────────────────────────────────────
 
 @main.command()
 @click.option("--out", "outdir", type=click.Path(), default="build")
@@ -149,8 +186,8 @@ def synthesize(description: str, outdir: str):
     """Run a minimal end-to-end synthesis: parse → BOM → SKiDL netlist → (placeholder GERBER export)."""
     os.makedirs(outdir, exist_ok=True)
     req = parse_requirements(" ".join(description))
-    bom = generate_bom(req)
-    netlist = bom_to_schematic(bom)
+    bom_items = generate_bom(req)
+    netlist = bom_to_schematic(bom_items)
     netlist_path = os.path.join(outdir, "netlist.txt")
     with open(netlist_path, "w") as f:
         f.write(netlist)
