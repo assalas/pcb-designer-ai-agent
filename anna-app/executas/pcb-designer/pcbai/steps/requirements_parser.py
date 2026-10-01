@@ -13,7 +13,7 @@ Return ONLY a valid JSON object with this schema:
   "keywords": ["list", "of", "component", "types"],
   "voltage": "string or null",
   "current": "string or null",
-  "connectivity": ["wifi", "bluetooth", etc.],
+  "connectivity": ["wifi", "bluetooth"],
   "mcu": "preferred MCU family or null",
   "notes": "any extra constraints"
 }
@@ -33,7 +33,7 @@ def parse_requirements(natural_text: str) -> Dict:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": natural_text},
         ]
-        raw = provider.chat(messages, temperature=0.1, max_tokens=300)
+        raw = provider.chat(messages, temperature=0.1, max_tokens=4000)
 
         # Extract JSON from response (handle markdown code fences)
         raw = raw.strip()

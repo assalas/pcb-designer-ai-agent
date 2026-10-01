@@ -253,7 +253,7 @@ def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
             raw = provider.chat([
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": description}
-            ], temperature=0.1, max_tokens=1024)
+            ], temperature=0.1, max_tokens=4000)
             raw = raw.strip()
             if raw.startswith("```json"):
                 raw = raw[7:]
@@ -266,7 +266,7 @@ def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
                 invoke_id,
                 description,
                 system_prompt=system_prompt,
-                max_tokens=1024,
+                max_tokens=4000,
                 temperature=0.1,
             )
 
@@ -278,7 +278,7 @@ def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
             if raw.lower().startswith("json"):
                 raw = raw[4:]
         
-        result = json.loads(raw.strip())
+        print("RAW JSON FROM LLM:", repr(raw.strip())); result = json.loads(raw.strip())
         result.setdefault("notes", description)
         return {"success": True, "data": result}
     except Exception as e:
@@ -542,13 +542,13 @@ def _tool_full_pipeline(args: dict, ctx: dict) -> dict:
                 report = provider.chat([
                     {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": report_prompt}
-                ], temperature=0.3, max_tokens=1000)
+                ], temperature=0.3, max_tokens=4000)
             else:
                 report = sample(
                     invoke_id,
                     report_prompt,
                     system_prompt=sys_prompt,
-                    max_tokens=1000,
+                    max_tokens=4000,
                     temperature=0.3,
                 )
             artifacts["analysis_report"] = report
@@ -573,13 +573,13 @@ def _tool_full_pipeline(args: dict, ctx: dict) -> dict:
             report = provider.chat([
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": report_prompt}
-            ], temperature=0.3, max_tokens=1000)
+            ], temperature=0.3, max_tokens=4000)
         else:
             report = sample(
                 invoke_id,
                 report_prompt,
                 system_prompt=sys_prompt,
-                max_tokens=1000,
+                max_tokens=4000,
                 temperature=0.3,
             )
         artifacts["analysis_report"] = report
