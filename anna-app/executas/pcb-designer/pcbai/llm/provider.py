@@ -111,7 +111,7 @@ class OpenAIProvider(LLMProvider):
             r.raise_for_status()
         except Exception as e:
             raise RuntimeError(f"{e} | Response: {r.text}")
-        return r.json()["choices"][0]["message"]["content"].strip()
+        return r.json()["choices"][0]["message"].get("content") or ""
 
     def complete(self, prompt: str, **kwargs) -> str:
         return self.chat([{"role": "user", "content": prompt}], **kwargs)
@@ -158,7 +158,7 @@ class OpenRouterFallbackProvider(LLMProvider):
             )
             if r.status_code == 200:
                 print(f"    [openrouter] ✓ Success with {model}!")
-                return r.json()["choices"][0]["message"]["content"].strip()
+                return r.json()["choices"][0]["message"].get("content") or ""
             print(f"    [openrouter] ↳ Failed ({r.status_code}): {r.json().get('error', {}).get('message', 'Unknown')}")
             
         raise RuntimeError("All OpenRouter free fallback models exhausted or rate-limited.")

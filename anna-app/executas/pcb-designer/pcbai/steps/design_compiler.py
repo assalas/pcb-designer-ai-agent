@@ -55,31 +55,46 @@ def _build_schematic_from_bom(bom: List[Dict], output_path: str, prompt: str) ->
         )
 
     def _ic_body(npins: int = 4) -> str:
-        h = max(5.08, npins * 2.54)
+        pins_per_side = (npins + 1) // 2
+        h = max(5.08, pins_per_side * 2.54 + 2.54)
         body = (
-            f"      (rectangle (start -5.08 {h/2:.2f}) (end 5.08 {-h/2:.2f})\n"
+            f"      (rectangle (start -10.16 {h/2:.2f}) (end 10.16 {-h/2:.2f})\n"
             "        (stroke (width 0.254) (type default))\n"
             "        (fill (type background))\n"
             "      )\n"
         )
         for i in range(npins):
-            y = h / 2 - 2.54 - i * 2.54
-            body += (
-                f"      (pin bidirectional line (at -7.62 {y:.2f} 0) (length 2.54)\n"
-                f"        (name \"IO{i}\" (effects (font (size 1.27 1.27))))\n"
-                f"        (number \"{i+1}\" (effects (font (size 1.27 1.27))))\n"
-                "      )\n"
-            )
+            side = 0 if i < pins_per_side else 1
+            idx = i if side == 0 else (i - pins_per_side)
+            y = h / 2 - 2.54 - idx * 2.54
+            
+            if side == 0:
+                body += (
+                    f"      (pin bidirectional line (at -12.70 {y:.2f} 0) (length 2.54)\n"
+                    f"        (name \"IO{i}\" (effects (font (size 1.27 1.27))))\n"
+                    f"        (number \"{i+1}\" (effects (font (size 1.27 1.27))))\n"
+                    "      )\n"
+                )
+            else:
+                body += (
+                    f"      (pin bidirectional line (at 12.70 {y:.2f} 180) (length 2.54)\n"
+                    f"        (name \"IO{i}\" (effects (font (size 1.27 1.27))))\n"
+                    f"        (number \"{i+1}\" (effects (font (size 1.27 1.27))))\n"
+                    "      )\n"
+                )
         return body
 
     # Decide symbol body per package class
-    def _body_for(pkg: str) -> str:
+    def _body_for(pkg: str, pins: int = 0) -> str:
+        if pins > 2:
+            return _ic_body(pins)
+        
         pkg_lower = pkg.lower()
         if any(k in pkg_lower for k in ["module", "lqfp", "qfn", "lga", "soc", "mcu"]):
             return _ic_body(8)
         elif any(k in pkg_lower for k in ["soic-8", "soic8"]):
             return _ic_body(8)
-        elif any(k in pkg_lower for k in ["sot-23", "sot23"]):
+        elif any(k in pkg_lower for k in ["sot-23", "sot23", "sot-223"]):
             return _ic_body(3)
         elif any(k in pkg_lower for k in ["usb"]):
             return _ic_body(5)
@@ -109,10 +124,11 @@ def _build_schematic_from_bom(bom: List[Dict], output_path: str, prompt: str) ->
     lib_body = "  (lib_symbols\n"
     for comp in bom:
         pkg = comp.get("package", "0805")
+        pins = int(comp.get("pins", 0))
         sym_name = _safe_sym(pkg)
         if sym_name not in seen_syms:
             seen_syms.add(sym_name)
-            body = _body_for(pkg)
+            body = _body_for(pkg, pins)
             lib_body += (
                 f"    (symbol \"pcbai:{sym_name}\"\n"
                 "      (pin_names (offset 1.016))\n"
@@ -282,6 +298,68 @@ def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
             fp.Add(pad)
         return fp
 
+    def _make_parametric_footprint(ref: str, mpn: str, pkg: str) -> "pcbnew.FOOTPRINT":
+        """Use LLM to fetch datasheet parameters and build footprint parametrically!"""
+        from pcbai.llm.provider import get_provider
+        import json
+        import re
+        
+        prompt = f"I need physical package parameters for MPN '{mpn}' in package '{pkg}'. Return ONLY a JSON object with: 'pitch' (mm), 'body_w' (mm), 'body_l' (mm), 'pins' (int), 'pad_w' (mm), 'pad_l' (mm). Guess standard values if exact datasheet isn't memorized."
+        provider = get_provider()
+        try:
+            raw = provider.chat([{"role": "user", "content": prompt}], temperature=0.1)
+            
+            # Robust JSON object extraction
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                raw = match.group(0)
+            else:
+                raw = raw.strip()
+                if "```" in raw: raw = raw.split("```")[1]
+                if raw.startswith("json"): raw = raw[4:]
+                
+            params = json.loads(raw.strip())
+        except Exception as e:
+            print(f"[parametric_fp] LLM failed for {mpn}, falling back to placeholder. {e}")
+            return _make_placeholder(ref, mpn)
+            
+        pitch = float(params.get("pitch", 0.5))
+        body_w = float(params.get("body_w", 5.0))
+        pins = int(params.get("pins", 8))
+        pad_w = float(params.get("pad_w", 0.3))
+        pad_l = float(params.get("pad_l", 1.0))
+        
+        fp = pcbnew.FOOTPRINT(board)
+        fp.SetFPID(pcbnew.LIB_ID("pcbai", f"{pkg}_{pins}"))
+        
+        lset = pcbnew.LSET()
+        lset.addLayer(pcbnew.F_Cu)
+        lset.addLayer(pcbnew.F_Paste)
+        lset.addLayer(pcbnew.F_Mask)
+        
+        pins_per_side = max(1, pins // 2)
+        start_y = -((pins_per_side - 1) * pitch) / 2
+        
+        for i in range(pins):
+            pad = pcbnew.PAD(fp)
+            pad.SetShape(pcbnew.PAD_SHAPE_RECT)
+            pad.SetAttribute(pcbnew.PAD_ATTRIB_SMD)
+            pad.SetLayerSet(lset)
+            pad.SetSize(pcbnew.VECTOR2I(mm(pad_l), mm(pad_w)))
+            
+            side = 0 if i < pins_per_side else 1
+            idx = i if side == 0 else (pins - 1 - i)
+            
+            x = -body_w/2 if side == 0 else body_w/2
+            y = start_y + idx * pitch
+            
+            pad.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
+            pad.SetNumber(str(i + 1))
+            fp.Add(pad)
+            
+        print(f"[parametric_fp] AI Generated {pkg} footprint for {mpn} with {pins} pins!")
+        return fp
+
     # Map our BOM package strings to KiCad footprint libraries
     FOOTPRINT_MAP = {
         "Module":   ("RF_Module",          "ESP32-WROOM-32"),
@@ -311,7 +389,10 @@ def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
             fp = _load_fp(lib, fp_name)
 
         if fp is None:
-            fp = _make_placeholder(ref, value)
+            if pkg != "UNKNOWN" and pkg != "0805":
+                fp = _make_parametric_footprint(ref, value, pkg)
+            else:
+                fp = _make_placeholder(ref, value)
 
         board.Add(fp)
         fp.SetReference(ref)
