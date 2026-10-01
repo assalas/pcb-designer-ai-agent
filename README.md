@@ -37,6 +37,14 @@ export GEMINI_API_KEY=your_api_key_here
 export PCB_AI_MODEL=gemini-3.6-flash
 ```
 
+**To use OpenRouter (Auto-Fallback across Free Models):**
+```bash
+export PCB_AI_LLM_PROVIDER=openrouter
+export OPENROUTER_API_KEY=your_api_key_here
+# The agent will automatically fallback through a robust list of free models 
+# (e.g. dots-3-note-preview, qwen3.8-27b) if rate-limits are hit!
+```
+
 **To use OpenAI:**
 ```bash
 export PCB_AI_LLM_PROVIDER=openai
