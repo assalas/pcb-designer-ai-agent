@@ -1,0 +1,19 @@
+{
+  "name": "genkit-pcb-designer",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "genkit start -- tsx src/index.ts"
+  },
+  "dependencies": {
+    "@genkit-ai/google-genai": "^1.42.0",
+    "@genkit-ai/googleai": "^1.28.0",
+    "express": "^4.19.2",
+    "genkit": "^1.42.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "genkit-cli": "^1.43.0",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5"
+  }
+}

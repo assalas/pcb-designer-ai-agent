@@ -3,10 +3,14 @@
   "tool_id": "tool-assalas-pcb-designer-nefeer3m",
   "name": "pcb-designer",
   "display_name": "PCB Designer AI Agent",
-  "version": "1.0.8",
-  "description": "Professional PCB design agent for rapid prototyping on Anna OS. 1.0.7 adds ESP32 support.",
+  "version": "1.1.0",
+  "description": "AI-powered PCB design tool. Requires a Local Agent with KiCad 8 installed. Parses natural-language hardware descriptions, generates a BOM, synthesises a KiCad schematic and board layout via pcbnew, and exports Gerbers. Output changes with every prompt.",
   "author": "assalas",
   "type": "tool",
+  "requires_local_agent": true,
+  "local_agent_dependencies": [
+    "KiCad 8 (https://www.kicad.org/download/) — provides pcbnew Python bindings and kicad-cli"
+  ],
   "command": ["uv", "run", "python3", "plugin.py"],
   "host_capabilities": ["llm.sample", "llm.complete"],
   "distribution": {
@@ -54,21 +58,21 @@
   "tools": [
     {
       "name": "parse_requirements",
-      "description": "Extract structured component requirements from a natural-language hardware description. Uses deep LLM reasoning (via Anna sampling) with thorough chain-of-thought analysis for MCU selection, voltage domains, and LPKF constraints.",
+      "description": "Extract structured component requirements from a natural-language hardware description using deep LLM reasoning with chain-of-thought analysis.",
       "parameters": [
         {"name": "description", "type": "string", "description": "Natural-language hardware description", "required": true}
       ]
     },
     {
       "name": "generate_bom",
-      "description": "Generate a Bill of Materials from structured requirements. Queries Octopart when credentials available, falls back to built-in catalog.",
+      "description": "Generate a Bill of Materials from structured requirements. Queries Octopart when credentials are available, otherwise uses the built-in component catalog.",
       "parameters": [
         {"name": "requirements_json", "type": "string", "description": "JSON string of structured requirements", "required": true}
       ]
     },
     {
       "name": "extract_package_from_pdf",
-      "description": "Deep extraction of package dimensions from a component datasheet PDF. Multi-stage pipeline: text extraction, OCR fallback, LLM-powered dimensional analysis with thorough reasoning for mechanical drawings.",
+      "description": "Extract package dimensions from a component datasheet PDF. Multi-stage pipeline: text extraction, OCR fallback, LLM-powered dimensional analysis.",
       "parameters": [
         {"name": "pdf_path", "type": "string", "description": "Absolute path to PDF datasheet", "required": true}
       ]
@@ -83,14 +87,14 @@
     },
     {
       "name": "synthesize_netlist",
-      "description": "Generate a SKiDL netlist from a BOM with automatic decoupling and buck converter support circuits.",
+      "description": "Generate a KiCad netlist from a BOM with automatic decoupling capacitors and support circuits.",
       "parameters": [
         {"name": "bom_json", "type": "string", "description": "JSON array of BOM entries", "required": true}
       ]
     },
     {
       "name": "route_pcb",
-      "description": "Route a PCB board from a netlist using KiCad pcbnew with smart heuristic placement and optional Manhattan routing.",
+      "description": "Route a PCB board from a netlist using KiCad pcbnew (requires Local Agent with KiCad 8). Uses smart heuristic placement and Manhattan routing.",
       "parameters": [
         {"name": "netlist_json", "type": "string", "description": "JSON netlist structure", "required": true},
         {"name": "output_dir", "type": "string", "description": "Directory for output files", "required": false}
@@ -98,7 +102,7 @@
     },
     {
       "name": "full_pipeline",
-      "description": "Run the complete end-to-end pipeline: NL description to requirements to BOM to netlist to board layout. Includes comprehensive engineering analysis report with LPKF manufacturability assessment.",
+      "description": "Run the complete end-to-end pipeline from a natural-language description to a downloadable KiCad project ZIP (board, schematic, BOM, Gerbers). Requires a Local Agent with KiCad 8.",
       "parameters": [
         {"name": "description", "type": "string", "description": "Natural-language hardware description", "required": true}
       ]

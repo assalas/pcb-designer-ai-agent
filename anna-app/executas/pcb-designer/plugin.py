@@ -114,12 +114,12 @@ def sample(
 MANIFEST = {
     "name": "pcb-designer",
     "display_name": "PCB Designer AI Agent",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": (
-        "End-to-end PCB design agent: parses natural-language requirements, "
-        "generates BOMs, extracts package parameters from PDF datasheets, "
-        "produces KiCad footprints, synthesizes SKiDL schematics, and routes boards. "
-        "Optimized for LPKF ProtoLaser S4 / MultiPress S4 / Contac S4 rapid prototyping."
+        "AI-powered PCB design agent for Local Agents with KiCad 8. "
+        "Parses natural-language hardware requirements, generates a BOM, "
+        "synthesises a KiCad schematic, places and routes the board via pcbnew, "
+        "and exports Gerbers. Output changes with every different prompt."
     ),
     "author": "assalas",
     "host_capabilities": ["llm.sample", "llm.complete"],
@@ -155,7 +155,7 @@ MANIFEST = {
                 "OCR fallback → LLM-powered dimensional analysis with thorough "
                 "chain-of-thought reasoning for mechanical drawings. Returns "
                 "pkg_type, pins, pitch, body dimensions, pad dimensions, and "
-                "exposed pad parameters. Optimized for LPKF rapid prototyping."
+                "exposed pad parameters."
             ),
             "parameters": [
                 {"name": "pdf_path", "type": "string", "description": "Absolute path to PDF datasheet on disk", "required": True},
@@ -201,9 +201,8 @@ MANIFEST = {
             "name": "full_pipeline",
             "description": (
                 "Run the complete end-to-end pipeline: natural-language description → "
-                "requirements → BOM → netlist → board layout. Returns all intermediate "
-                "artifacts and a comprehensive analysis report with deep reasoning about "
-                "component selection, layout trade-offs, and LPKF manufacturability."
+                "BOM → KiCad schematic → placed and routed board → Gerbers → ZIP. "
+                "Requires a Local Agent with KiCad 8. Output reflects the user prompt."
             ),
             "parameters": [
                 {"name": "description", "type": "string", "description": "Natural-language hardware description", "required": True},
@@ -224,10 +223,10 @@ def _tool_parse_requirements(args: dict, ctx: dict) -> dict:
 
     system_prompt = (
         "You are an expert hardware/electronics engineer specializing in PCB design "
-        "for rapid prototyping with LPKF ProtoLaser S4, MultiPress S4, and Contac S4 systems.\n\n"
-        "Analyze the user's hardware description with thorough chain-of-thought reasoning.\n"
+        "for rapid prototyping.\n\n"
+        "Analyse the user's hardware description with thorough chain-of-thought reasoning.\n"
         "Consider: voltage domains, current requirements, signal integrity, thermal constraints, "
-        "component availability, and LPKF process limitations (min trace width, via size, etc.).\n\n"
+        "and component availability.\n\n"
         "Return ONLY a JSON object with this schema:\n"
         '{\n  "keywords": ["list", "of", "component", "types"],\n'
         '  "voltage": "string or null",\n  "current": "string or null",\n'
@@ -468,6 +467,22 @@ def _tool_synthesize_netlist(args: dict, ctx: dict) -> dict:
 
 
 def _tool_route_pcb(args: dict, ctx: dict) -> dict:
+    # Pre-flight: verify pcbnew (KiCad 8) is available on this system
+    import sys
+    _KICAD_LIB = "/usr/lib/kicad/lib/python3/dist-packages"
+    if _KICAD_LIB not in sys.path:
+        sys.path.insert(0, _KICAD_LIB)
+    try:
+        import pcbnew  # noqa: F401
+    except ImportError:
+        return {
+            "success": False,
+            "error": (
+                "pcbnew (KiCad 8 Python API) is not available on this system. "
+                "This tool requires a Local Agent with KiCad 8 installed. "
+                "Please install KiCad 8 from https://www.kicad.org/download/ and re-run."
+            ),
+        }
     from pcbai.steps.pcb_router import route_pcb
     netlist = json.loads(args["netlist_json"])
     output_dir = args.get("output_dir", "/tmp/pcbai_build")

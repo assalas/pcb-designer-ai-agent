@@ -1,0 +1,1 @@
+../genkit-cli/dist/bin/genkit.js

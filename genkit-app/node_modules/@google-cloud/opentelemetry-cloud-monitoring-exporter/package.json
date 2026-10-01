@@ -1,0 +1,81 @@
+{
+  "name": "@google-cloud/opentelemetry-cloud-monitoring-exporter",
+  "version": "0.19.0",
+  "description": "OpenTelemetry Google Cloud Monitoring Exporter allows the user to send collected metrics to Google Cloud Monitoring.",
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
+  "repository": "GoogleCloudPlatform/opentelemetry-operations-js",
+  "scripts": {
+    "codecov": "nyc report --reporter=json && codecov -f coverage/*.json -p ../../",
+    "lint": "gts lint",
+    "clean": "gts clean",
+    "precompile": "version-update.js",
+    "compile": "tsc",
+    "prepack": "npm run compile",
+    "test": "nyc ts-mocha -p tsconfig.json 'test/**/*.test.ts'",
+    "update-snapshot-tests": "SNAPSHOT_UPDATE=1 npm run test",
+    "fix": "gts fix",
+    "pretest": "npm run compile"
+  },
+  "keywords": [
+    "opentelemetry",
+    "nodejs",
+    "Monitoring",
+    "google-cloud-monitoring"
+  ],
+  "author": "Google Inc.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=14"
+  },
+  "files": [
+    "build/src/**/*.js",
+    "build/src/**/*.d.ts",
+    "doc",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://wombat-dressing-room.appspot.com"
+  },
+  "config": {
+    "snap-shot-it": {
+      "sortSnapshots": true
+    }
+  },
+  "devDependencies": {
+    "@google-cloud/ops-js-scripts": "^1.0.0",
+    "@opentelemetry/api": "1.9.0",
+    "@opentelemetry/core": "1.25.1",
+    "@opentelemetry/resources": "1.25.1",
+    "@opentelemetry/sdk-metrics": "1.25.1",
+    "@types/mocha": "10.0.7",
+    "@types/nock": "11.1.0",
+    "@types/node": "14.18.63",
+    "@types/sinon": "17.0.3",
+    "codecov": "3.8.3",
+    "gts": "5.3.1",
+    "mocha": "10.6.0",
+    "nock": "13.5.4",
+    "nyc": "15.1.0",
+    "rimraf": "5.0.9",
+    "sinon": "17.0.2",
+    "snap-shot-it": "7.9.10",
+    "ts-mocha": "10.0.0",
+    "typescript": "4.9.5"
+  },
+  "dependencies": {
+    "@google-cloud/opentelemetry-resource-util": "^2.3.0",
+    "@google-cloud/precise-date": "^4.0.0",
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^137.0.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.0.0",
+    "@opentelemetry/core": "^1.0.0",
+    "@opentelemetry/resources": "^1.0.0",
+    "@opentelemetry/sdk-metrics": "^1.0.0"
+  },
+  "gitHead": "6dd16f42f1347be764bf41ae48b79fd6ae47e7e5"
+}
