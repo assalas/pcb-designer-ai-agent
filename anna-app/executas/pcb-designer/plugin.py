@@ -103,8 +103,18 @@ def sample(
 
     resp = q.get(timeout=120)
     if "error" in resp:
-        raise RuntimeError(f"Sampling error: {resp['error']}")
+        err = resp["error"]
+        # Detect quota exhaustion specifically so callers can fall back gracefully
+        err_str = str(err)
+        if "APP_QUOTA_EXCEEDED" in err_str or "429" in err_str or "QUOTA" in err_str.upper():
+            raise QuotaExceededError(f"Anna quota exhausted: {err}")
+        raise RuntimeError(f"Sampling error: {err}")
     return resp["result"]["content"]["text"]
+
+
+class QuotaExceededError(RuntimeError):
+    """Raised when Anna's LLM quota is exhausted — callers should use local fallback."""
+    pass
 
 
 # ════════════════════════════════════════════════════════════
@@ -545,8 +555,46 @@ def _tool_full_pipeline(args: dict, ctx: dict) -> dict:
             
         except Exception as e:
             log(f"Pipeline failed: {e}")
-            artifacts["analysis_report"] = f"Pipeline failed: {e}"
             return {"success": False, "error": str(e)}
+
+    # ── Optional: AI engineering report (best-effort, never crashes pipeline) ──
+    log("Generating engineering analysis report (best-effort)...")
+    report_prompt = (
+        f"Hardware description: {description}\n\n"
+        f"Generated BOM: {artifacts.get('bom_json', '[]')}\n\n"
+        "Provide a short engineering analysis: component choices, power budget, "
+        "routing considerations, and any design risks."
+    )
+    sys_prompt = "You are a senior PCB design engineer. Be concise."
+    try:
+        if os.environ.get("PCB_AI_LLM_PROVIDER") and os.environ.get("PCB_AI_LLM_PROVIDER") != "anna":
+            from pcbai.llm.provider import get_provider
+            provider = get_provider()
+            report = provider.chat([
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": report_prompt}
+            ], temperature=0.3, max_tokens=1000)
+        else:
+            report = sample(
+                invoke_id,
+                report_prompt,
+                system_prompt=sys_prompt,
+                max_tokens=1000,
+                temperature=0.3,
+            )
+        artifacts["analysis_report"] = report
+    except QuotaExceededError:
+        log("Anna quota exhausted — skipping AI report, pipeline output is still complete.")
+        bom_list = artifacts.get("bom", [])
+        artifacts["analysis_report"] = (
+            f"✅ Board generated successfully with {len(bom_list)} components: "
+            + ", ".join(c.get("mpn", "?") for c in bom_list)
+            + ".\n\n(AI engineering report skipped — Anna quota exhausted. "
+            "The PCB, schematic, Gerbers, and ZIP are complete.)"
+        )
+    except Exception as e:
+        log(f"Report generation failed (non-critical): {e}")
+        artifacts["analysis_report"] = "Engineering report unavailable."
 
     return {
         "success": True,
