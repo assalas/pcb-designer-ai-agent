@@ -1730,7 +1730,7 @@ wheels = [
 
 [[package]]
 name = "pcb-designer-ai-agent"
-version = "0.0.1"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
