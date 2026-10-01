@@ -469,7 +469,7 @@ def _tool_synthesize_netlist(args: dict, ctx: dict) -> dict:
 def _tool_route_pcb(args: dict, ctx: dict) -> dict:
     # Pre-flight: verify pcbnew (KiCad 8) is available on this system
     import sys
-    _KICAD_LIB = "/usr/lib/kicad/lib/python3/dist-packages"
+    _KICAD_LIB = "/usr/lib/python3/dist-packages"
     if _KICAD_LIB not in sys.path:
         sys.path.insert(0, _KICAD_LIB)
     try:

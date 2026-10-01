@@ -17,7 +17,7 @@ import traceback
 from typing import Optional
 
 # ── KiCad Python bindings ─────────────────────────────────────────────────────
-_KICAD_LIB = "/usr/lib/kicad/lib/python3/dist-packages"
+_KICAD_LIB = "/usr/lib/python3/dist-packages"
 if _KICAD_LIB not in sys.path:
     sys.path.insert(0, _KICAD_LIB)
 

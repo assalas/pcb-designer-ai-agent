@@ -183,7 +183,7 @@ def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
     """
     import sys
 
-    _KICAD_LIB = "/usr/lib/kicad/lib/python3/dist-packages"
+    _KICAD_LIB = "/usr/lib/python3/dist-packages"
     if _KICAD_LIB not in sys.path:
         sys.path.insert(0, _KICAD_LIB)
 
