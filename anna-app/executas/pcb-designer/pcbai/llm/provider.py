@@ -87,20 +87,30 @@ class OllamaProvider(LLMProvider):
 # OpenAI
 # ─────────────────────────────────────────────
 class OpenAIProvider(LLMProvider):
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini", base_url: str = "https://api.openai.com/v1"):
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self.model = model
+        self.base_url = base_url.rstrip("/")
 
     def chat(self, messages: List[Dict], temperature: float = 0.2, max_tokens: int = 512, **kwargs) -> str:
-        if not self.api_key: raise RuntimeError("OPENAI_API_KEY not set")
+        if not self.api_key: raise RuntimeError("API_KEY not set for OpenAI-compatible provider")
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        # OpenRouter specific headers (optional but recommended)
+        if "openrouter" in self.base_url:
+            headers["HTTP-Referer"] = "https://github.com/assalas/pcb-designer-ai-agent"
+            headers["X-Title"] = "PCB Designer AI Agent"
+
         r = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            f"{self.base_url}/chat/completions",
+            headers=headers,
             json={"model": self.model, "messages": messages,
                   "temperature": _get_temperature(temperature), "max_tokens": _get_max_tokens(max_tokens)},
             timeout=60,
         )
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            raise RuntimeError(f"{e} | Response: {r.text}")
         return r.json()["choices"][0]["message"]["content"].strip()
 
     def complete(self, prompt: str, **kwargs) -> str:
@@ -213,7 +223,16 @@ def get_provider() -> LLMProvider:
             model=os.getenv("PCB_AI_MODEL", "llama3")
         )
     elif name == "openai":
-        return OpenAIProvider(model=os.getenv("PCB_AI_MODEL", "gpt-4o-mini"))
+        return OpenAIProvider(
+            model=os.getenv("PCB_AI_MODEL", "gpt-4o-mini"),
+            base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        )
+    elif name == "openrouter":
+        return OpenAIProvider(
+            api_key=os.environ.get("OPENROUTER_API_KEY"),
+            model=os.getenv("PCB_AI_MODEL", "meta-llama/llama-3.1-8b-instruct:free"),
+            base_url="https://openrouter.ai/api/v1"
+        )
     elif name == "anthropic" or name == "claude":
         return AnthropicProvider(model=os.getenv("PCB_AI_MODEL", "claude-3-5-sonnet-20240620"))
     elif name == "gemini":
