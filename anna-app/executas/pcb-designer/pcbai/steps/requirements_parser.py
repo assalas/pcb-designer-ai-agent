@@ -49,8 +49,52 @@ def parse_requirements(natural_text: str) -> Dict:
         # Fallback: simple keyword match
         print(f"[requirements_parser] LLM unavailable ({e}), using keyword fallback.")
         lower = natural_text.lower()
-        keywords = [w for w in [
-            "bluetooth", "wifi", "usb", "buck", "lipo", "mcu", "sd", "ldo", "esp32",
-            "adc", "opamp", "led", "relay", "sensor", "motor", "display"
-        ] if w in lower]
+        # Keyword → catalog key mapping for compound terms
+        KEYWORD_MAP = {
+            "bluetooth": "bluetooth",
+            "wifi": "wifi",
+            "wi-fi": "wifi",
+            "usb-c": "usb",
+            "usb": "usb",
+            "buck": "buck",
+            "lipo": "lipo",
+            "lithium": "lipo",
+            "battery charger": "lipo",
+            "charger": "lipo",
+            "mcu": "mcu",
+            "microcontroller": "mcu",
+            "sd card": "sd",
+            "sd": "sd",
+            "ldo": "ldo",
+            "regulator": "ldo",
+            "esp32": "esp32",
+            "esp8266": "wifi",
+            "stm32": "mcu",
+            "arduino": "mcu",
+            "rp2040": "mcu",
+            "nrf52": "bluetooth",
+            "imu": "sensor",
+            "accelerometer": "sensor",
+            "gyroscope": "sensor",
+            "temperature": "sensor",
+            "sensor": "sensor",
+            "adc": "adc",
+            "opamp": "opamp",
+            "led": "led",
+            "relay": "relay",
+            "motor": "motor",
+            "display": "display",
+            "oled": "display",
+            "lcd": "display",
+            "i2c": "sensor",
+            "spi": "sensor",
+            "can bus": "mcu",
+            "ethernet": "wifi",
+        }
+        seen = set()
+        keywords = []
+        for term, catalog_key in KEYWORD_MAP.items():
+            if term in lower and catalog_key not in seen:
+                keywords.append(catalog_key)
+                seen.add(catalog_key)
         return {"keywords": keywords, "notes": natural_text.strip()}
