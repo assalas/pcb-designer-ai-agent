@@ -230,7 +230,7 @@ def get_provider() -> LLMProvider:
     elif name == "openrouter":
         return OpenAIProvider(
             api_key=os.environ.get("OPENROUTER_API_KEY"),
-            model=os.getenv("PCB_AI_MODEL", "qwen/qwen3.8-27b"),
+            model=os.getenv("PCB_AI_MODEL", "qwen/qwen3.8-27b:free"),
             base_url="https://openrouter.ai/api/v1"
         )
     elif name == "anthropic" or name == "claude":
