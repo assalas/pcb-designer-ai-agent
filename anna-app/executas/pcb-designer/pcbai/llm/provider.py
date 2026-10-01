@@ -118,6 +118,57 @@ class OpenAIProvider(LLMProvider):
 
 
 # ─────────────────────────────────────────────
+# OpenRouter Auto-Fallback Router
+# ─────────────────────────────────────────────
+class OpenRouterFallbackProvider(LLMProvider):
+    """Iterates through a list of free models until one succeeds."""
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        self.base_url = "https://openrouter.ai/api/v1"
+        self.models = [
+            "dots-studio/dots-3-note-preview:free",
+            "inclusionai/ling-3.0-flash-sante:free",
+            "qwen/qwen3.8-27b:free",
+            "liquid/lfm2.5-2.6b:free",
+            "thinkingmachines/inkling-small:free",
+            "poolside/laguna-s-2.1:free",
+            "cohere/north-mini-code:free"
+        ]
+
+    def chat(self, messages: List[Dict], temperature: float = 0.2, max_tokens: int = 512, **kwargs) -> str:
+        if not self.api_key: raise RuntimeError("OPENROUTER_API_KEY not set")
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "HTTP-Referer": "https://github.com/assalas/pcb-designer-ai-agent",
+            "X-Title": "PCB Designer AI Agent"
+        }
+        
+        for model in self.models:
+            print(f"    [openrouter] Trying model: {model}...")
+            r = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": _get_temperature(temperature),
+                    "max_tokens": _get_max_tokens(max_tokens)
+                },
+                timeout=15
+            )
+            if r.status_code == 200:
+                print(f"    [openrouter] ✓ Success with {model}!")
+                return r.json()["choices"][0]["message"]["content"].strip()
+            print(f"    [openrouter] ↳ Failed ({r.status_code}): {r.json().get('error', {}).get('message', 'Unknown')}")
+            
+        raise RuntimeError("All OpenRouter free fallback models exhausted or rate-limited.")
+
+    def complete(self, prompt: str, **kwargs) -> str:
+        return self.chat([{"role": "user", "content": prompt}], **kwargs)
+
+
+
+# ─────────────────────────────────────────────
 # Anthropic (Claude)
 # ─────────────────────────────────────────────
 class AnthropicProvider(LLMProvider):
@@ -228,11 +279,7 @@ def get_provider() -> LLMProvider:
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         )
     elif name == "openrouter":
-        return OpenAIProvider(
-            api_key=os.environ.get("OPENROUTER_API_KEY"),
-            model=os.getenv("PCB_AI_MODEL", "qwen/qwen3.8-27b:free"),
-            base_url="https://openrouter.ai/api/v1"
-        )
+        return OpenRouterFallbackProvider()
     elif name == "anthropic" or name == "claude":
         return AnthropicProvider(model=os.getenv("PCB_AI_MODEL", "claude-3-5-sonnet-20240620"))
     elif name == "gemini":
