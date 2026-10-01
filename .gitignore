@@ -19,3 +19,11 @@ dist/
 .pytest_cache/
 .cache/
 reef/
+
+# Node
+node_modules/
+genkit-app/node_modules/
+*.log
+
+# Coverage
+.coverage

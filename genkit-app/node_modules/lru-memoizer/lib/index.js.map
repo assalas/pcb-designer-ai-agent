@@ -1,1 +1,0 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["../src/index.ts"],"names":[],"mappings":";AAAA,mCAAwC;AAExC,iBAAS,qBAAa,CAAC","sourcesContent":["import { asyncMemoizer } from './async';\n\nexport = asyncMemoizer;\n"]}
