@@ -44,11 +44,11 @@ def _build_schematic_from_bom(bom: List[Dict], output_path: str, prompt: str) ->
             "        (stroke (width 0.254) (type default))\n"
             "        (fill (type background))\n"
             "      )\n"
-            "      (pin \"~\" line (at -2.54 0 0) (length 2.54)\n"
+            "      (pin passive line (at -2.54 0 0) (length 2.54)\n"
             "        (name \"~\" (effects (font (size 1.27 1.27))))\n"
             "        (number \"1\" (effects (font (size 1.27 1.27))))\n"
             "      )\n"
-            "      (pin \"~\" line (at 2.54 0 180) (length 2.54)\n"
+            "      (pin passive line (at 2.54 0 180) (length 2.54)\n"
             "        (name \"~\" (effects (font (size 1.27 1.27))))\n"
             "        (number \"2\" (effects (font (size 1.27 1.27))))\n"
             "      )\n"
@@ -65,7 +65,7 @@ def _build_schematic_from_bom(bom: List[Dict], output_path: str, prompt: str) ->
         for i in range(npins):
             y = h / 2 - 2.54 - i * 2.54
             body += (
-                f"      (pin \"IO{i}\" line (at -7.62 {y:.2f} 0) (length 2.54)\n"
+                f"      (pin bidirectional line (at -7.62 {y:.2f} 0) (length 2.54)\n"
                 f"        (name \"IO{i}\" (effects (font (size 1.27 1.27))))\n"
                 f"        (number \"{i+1}\" (effects (font (size 1.27 1.27))))\n"
                 "      )\n"
