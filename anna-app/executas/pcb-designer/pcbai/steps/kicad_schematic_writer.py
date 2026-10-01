@@ -99,7 +99,7 @@ def _lib_symbols() -> str:
             f'    (symbol "{lib}:{name}"\n'
             f'      (pin_names (offset 1.016))\n'
             f'      (in_bom yes) (on_board yes)\n'
-            f'      (symbol "{lib}_{name}_0_1"\n'
+            f'      (symbol "{name}_0_1"\n'
             f'{body}'
             f'      )\n'
             f'    )\n'

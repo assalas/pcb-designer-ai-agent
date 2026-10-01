@@ -117,7 +117,7 @@ def _build_schematic_from_bom(bom: List[Dict], output_path: str, prompt: str) ->
                 f"    (symbol \"pcbai:{sym_name}\"\n"
                 "      (pin_names (offset 1.016))\n"
                 "      (in_bom yes) (on_board yes)\n"
-                f"      (symbol \"pcbai_{sym_name}_0_1\"\n"
+                f"      (symbol \"{sym_name}_0_1\"\n"
                 f"{body}"
                 "      )\n"
                 "    )\n"
