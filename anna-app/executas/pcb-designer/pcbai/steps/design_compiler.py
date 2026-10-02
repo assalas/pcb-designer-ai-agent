@@ -409,6 +409,10 @@ def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
 
         print(f"[design_compiler] Placed {ref} ({value}) at ({x:.1f}, {y:.1f}) pkg={pkg}")
 
+    # Save board iteratively before attempting high-risk operations (copper pour)
+    pcbnew.SaveBoard(output_path, board)
+    print(f"[design_compiler] Saved intermediate PCB with all components → {output_path}")
+
     # GND pour on F.Cu
     zone = pcbnew.ZONE(board)
     zone.SetNet(gnd_net)

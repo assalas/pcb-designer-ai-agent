@@ -7,8 +7,8 @@ from test_harness import AnnaLocalHarness
 def main():
     print("🤖 Starting End-to-End PCB Designer Agent Simulation...\n")
     
-    # Initialize our local harness (mock_sampling=True uses the local mocked LLM logic)
-    harness = AnnaLocalHarness(mock_sampling=True)
+    # Initialize our local harness (mock_sampling=False uses the local LLM logic)
+    harness = AnnaLocalHarness(mock_sampling=False)
     
     build_dir = os.path.abspath("build")
     fp_dir = os.path.join(build_dir, "footprints")
@@ -27,10 +27,27 @@ def main():
 
     print("\nStep 2. Generating KiCad Footprint (generate_footprint)")
     pkg_params["name"] = "LM5164_SOIC"
+    # Ensure a known footprint type is used, mapping fallback if the LLM hallucinates
+    valid_types = ["qfn", "qfp", "soic", "smd_rc", "bga", "dip", "usbc", "header", "custom"]
+    if pkg_params["pkg_type"].lower() not in valid_types:
+        print(f"  ⚠️ Warning: LLM returned unknown type '{pkg_params['pkg_type']}'. Falling back to 'soic'")
+        pkg_params["pkg_type"] = "soic"
+        
+    # Sanitize None values from local LLM outputs
+    if pkg_params.get("pad_l") is None: pkg_params["pad_l"] = 1.5
+    if pkg_params.get("pad_w") is None: pkg_params["pad_w"] = 0.6
+    if pkg_params.get("ep_l") is None: pkg_params["ep_l"] = 0.0
+    if pkg_params.get("ep_w") is None: pkg_params["ep_w"] = 0.0
+        
     resp = harness.invoke_tool("generate_footprint", {
         "footprint_type": pkg_params["pkg_type"],
         "params_json": json.dumps(pkg_params)
     })
+    
+    if "data" not in resp.get("result", {}):
+        print(f"  ❌ Error generating footprint: {resp}")
+        sys.exit(1)
+        
     fp_content = resp["result"]["data"]["kicad_mod_content"]
     fp_path = os.path.join(fp_dir, "LM5164_SOIC.kicad_mod")
     with open(fp_path, "w") as f:

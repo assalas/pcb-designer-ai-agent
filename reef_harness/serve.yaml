@@ -33,11 +33,9 @@ recipe:
     training-mode: auto
 
 inference:
-  # Using Google Gemini API endpoint via standard OpenAI compatibility wrapper if available,
-  # or setting it up so Reef can use Gemini natively.
-  upstream-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
-  upstream-api-key: ${GEMINI_API_KEY}
-  upstream-model: gemini-1.5-flash
+  upstream-url: http://localhost:1234/v1/chat/completions
+  upstream-api-key: "lm-studio"
+  upstream-model: "google/gemma-4-12b"
 
 storage:
   agent-record-dir: work/agent-record
