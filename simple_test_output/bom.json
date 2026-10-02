@@ -1,0 +1,38 @@
+[
+  {
+    "description": "ARM Cortex-M3 MCU with 64KB Flash",
+    "mpn": "STM32F103C8T6",
+    "package": "LQFP-48",
+    "pins": 48,
+    "voltage": "N/A",
+    "ref": "U1",
+    "footprint": "Package_QFP:LQFP-48_7x7mm_P0.5mm"
+  },
+  {
+    "description": "High-brightness 5mm LED",
+    "mpn": "LTR303A1R",
+    "package": "0603",
+    "pins": 2,
+    "voltage": "N/A",
+    "ref": "U2",
+    "footprint": "pcbai:0603"
+  },
+  {
+    "description": "USB 2.0 Type-A to USB 2.0 Mini-B cable connector",
+    "mpn": "CP2102N-A01-GQ",
+    "package": "SSOP-20",
+    "pins": 20,
+    "voltage": "N/A",
+    "ref": "U3",
+    "footprint": "pcbai:SSOP-20"
+  },
+  {
+    "description": "Low-dropout regulator 3.3V 150mA",
+    "mpn": "LM1117-3.3",
+    "package": "SOT-223",
+    "pins": 3,
+    "voltage": "N/A",
+    "ref": "U4",
+    "footprint": "Package_TO_SOT_SMD:SOT-223-3_TabPin2"
+  }
+]
