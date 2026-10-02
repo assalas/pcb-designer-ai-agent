@@ -57,6 +57,7 @@ export PCB_AI_MODEL=gpt-4o-mini
 export PCB_AI_LLM_PROVIDER=lmstudio  # or ollama
 # Ensure your local server is running on port 1234 (LM Studio) or 11434 (Ollama)
 ```
+> 💡 **Hardware Recommendation (16GB VRAM GPUs):** If you are running local models on a GPU with 16GB of VRAM, we strongly recommend using the **`google/gemma-4-12b`** model. In our internal benchmark testing, Gemma correctly identified standard EE footprints, parsed mechanical datasheets, and reliably output strictly formatted JSON data, whereas models like Qwen or Bonsai often hallucinated physical package geometries and failed data extraction tasks.
 
 ### 2. Run the Agent Locally
 
