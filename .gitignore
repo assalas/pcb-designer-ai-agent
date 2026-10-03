@@ -27,3 +27,6 @@ genkit-app/node_modules/
 
 # Coverage
 .coverage
+
+# Test outputs
+*_test_output/

@@ -19,20 +19,20 @@
   },
   {
     "description": "USB 2.0 Type-A to USB 2.0 Mini-B cable connector",
-    "mpn": "CP2102N-A01-GQ",
-    "package": "SSOP-20",
-    "pins": 20,
+    "mpn": "USB2000",
+    "package": "SOT-23-6",
+    "pins": 6,
     "voltage": "N/A",
     "ref": "U3",
-    "footprint": "pcbai:SSOP-20"
+    "footprint": "pcbai:SOT-23-6"
   },
   {
     "description": "Low-dropout regulator 3.3V 150mA",
     "mpn": "LM1117-3.3",
-    "package": "SOT-223",
+    "package": "TO-220",
     "pins": 3,
     "voltage": "N/A",
     "ref": "U4",
-    "footprint": "Package_TO_SOT_SMD:SOT-223-3_TabPin2"
+    "footprint": "pcbai:TO-220"
   }
 ]
