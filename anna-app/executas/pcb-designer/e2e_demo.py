@@ -21,7 +21,7 @@ def main():
         sys.exit(1)
 
     print("Step 1. Extracting parameters from Datasheet PDF (extract_package_from_pdf)")
-    resp = harness.invoke_tool("extract_package_from_pdf", {"pdf_path": pdf_path})
+    resp = harness.invoke_tool("extract_package_from_pdf", {"pdf_path": pdf_path}, timeout=300.0)
     pkg_params = resp["result"]["data"]
     print(f"  ➜ Extracted: {pkg_params['pins']}-pin {pkg_params['pkg_type'].upper()}, pitch {pkg_params['pitch']}mm")
 

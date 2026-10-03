@@ -45,7 +45,10 @@ class LMStudioProvider(LLMProvider):
             "temperature": _get_temperature(temperature),
             "max_tokens": _get_max_tokens(max_tokens)
         }
-        r = requests.post(f"{self.base_url}/v1/chat/completions", json=payload, timeout=120)
+        # Structured output (JSON schema) — forces the model to emit valid JSON
+        if kwargs.get("response_format"):
+            payload["response_format"] = kwargs["response_format"]
+        r = requests.post(f"{self.base_url}/v1/chat/completions", json=payload, timeout=300)
         r.raise_for_status()
         msg = r.json()["choices"][0]["message"]
         content = msg.get("content", "").strip()

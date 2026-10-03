@@ -24,6 +24,7 @@ from typing import List, Dict, Any
 
 from pcbai.steps.requirements_parser import parse_requirements
 from pcbai.steps.bom_generator import generate_bom
+from pcbai.steps.netlist_generator import generate_netlist
 
 
 def _build_schematic_from_bom(bom: List[Dict], output_path: str, prompt: str) -> None:
@@ -189,7 +190,8 @@ def _safe_sym(pkg: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]", "_", pkg)[:40]
 
 
-def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
+def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str,
+                        netlist: Dict[str, Any] = None) -> bool:
     """
     Generate a .kicad_pcb file driven entirely by *bom*.
 
@@ -264,12 +266,21 @@ def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
         seg.SetEnd(pt(*corners[i + 1]))
         board.Add(seg)
 
-    # Add GND net
-    gnd_net = pcbnew.NETINFO_ITEM(board, "GND", 1)
-    board.Add(gnd_net)
-    vcc_net = pcbnew.NETINFO_ITEM(board, "+3V3", 2)
-    board.Add(vcc_net)
+    # Create nets from the netlist (falls back to GND/+3V3 if none supplied)
+    nets_spec = (netlist or {}).get("nets") or [
+        {"name": "GND", "pins": [{"ref": c.get("ref"), "pin": "1"} for c in bom]},
+        {"name": "+3V3", "pins": [{"ref": c.get("ref"), "pin": "2"} for c in bom]},
+    ]
+    net_items: Dict[str, Any] = {}
+    pin_to_net: Dict[tuple, Any] = {}   # (ref, pad_number) -> NETINFO_ITEM
+    for code, net in enumerate(nets_spec, start=1):
+        item = pcbnew.NETINFO_ITEM(board, net["name"], code)
+        board.Add(item)
+        net_items[net["name"]] = item
+        for p in net["pins"]:
+            pin_to_net[(p["ref"], str(p["pin"]))] = item
     board.BuildListOfNets()
+    gnd_net = net_items.get("GND") or next(iter(net_items.values()), None)
 
     FP_LIB_ROOT = "/usr/share/kicad/footprints"
 
@@ -400,40 +411,37 @@ def _build_pcb_from_bom(bom: List[Dict], output_path: str, prompt: str) -> bool:
         fp.SetPosition(pt(x, y))
         fp.SetOrientationDegrees(0)
 
-        # Assign GND/VCC to first two pads
-        pads = list(fp.Pads())
-        if len(pads) >= 1:
-            pads[0].SetNet(gnd_net)
-        if len(pads) >= 2:
-            pads[1].SetNet(vcc_net)
+        # Assign pads to nets from the netlist (by physical pad number)
+        pads_by_num = {str(p.GetNumber()): p for p in fp.Pads()}
+        wanted = [pin for (r, pin) in pin_to_net if r == ref]
+        connected, missing = 0, []
+        for pin in wanted:
+            pad = pads_by_num.get(pin)
+            if pad is None:
+                missing.append(pin)
+                continue
+            pad.SetNet(pin_to_net[(ref, pin)])
+            connected += 1
+        if missing:
+            print(f"[design_compiler] ⚠ {ref}: netlist pins {missing} not on footprint "
+                  f"(footprint has {len(pads_by_num)} pads)")
 
-        print(f"[design_compiler] Placed {ref} ({value}) at ({x:.1f}, {y:.1f}) pkg={pkg}")
+        print(f"[design_compiler] Placed {ref} ({value}) at ({x:.1f}, {y:.1f}) pkg={pkg}, "
+              f"{connected} pads connected")
 
     # Save board iteratively before attempting high-risk operations (copper pour)
     pcbnew.SaveBoard(output_path, board)
     print(f"[design_compiler] Saved intermediate PCB with all components → {output_path}")
 
-    # GND pour on F.Cu
-    zone = pcbnew.ZONE(board)
-    zone.SetNet(gnd_net)
-    zone.SetLayer(pcbnew.F_Cu)
-    zone.SetZoneName("GND_pour")
-    zone.SetMinThickness(mm(0.127))
-    zone.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
-    outline = zone.Outline()
-    outline.NewOutline()
-    for px, py in [(0, 0), (BW, 0), (BW, BH), (0, BH)]:
-        outline.Append(mm(px), mm(py))
-    board.Add(zone)
-
-    try:
-        filler = pcbnew.ZONE_FILLER(board)
-        filler.Fill(board.Zones())
-    except Exception as e:
-        print(f"[design_compiler] Zone fill skipped: {e}")
-
-    pcbnew.SaveBoard(output_path, board)
-    print(f"[design_compiler] Saved PCB → {output_path}")
+    # GND pour on F.Cu — run in a separate process. ZONE_FILLER segfaults (139)
+    # on this in-memory board, which no try/except can catch; reloading the saved
+    # board in a child process fills correctly and contains any crash.
+    from pcbai.steps.zone_fill import fill_zones_isolated
+    pour_net = gnd_net.GetNetname() if gnd_net is not None else "GND"
+    if fill_zones_isolated(output_path, pour_net):
+        print(f"[design_compiler] Saved PCB with {pour_net} pour → {output_path}")
+    else:
+        print(f"[design_compiler] Saved PCB (no copper pour) → {output_path}")
     return True
 
 
@@ -478,9 +486,16 @@ def compile_design(prompt: str, output_dir: str) -> dict:
     sch_path = os.path.join(output_dir, "schematic.kicad_sch")
     _build_schematic_from_bom(bom, sch_path, prompt)
 
+    # ── Step 3b: Netlist (pin-to-pin connectivity) ────────────────────────────
+    netlist = generate_netlist(bom, prompt)
+    netlist_path = os.path.join(output_dir, "netlist.json")
+    with open(netlist_path, "w") as f:
+        json.dump(netlist, f, indent=2)
+    print(f"[design_compiler] Netlist ({netlist['source']}): {len(netlist['nets'])} nets → {netlist_path}")
+
     # ── Step 4: PCB ───────────────────────────────────────────────────────────
     pcb_path = os.path.join(output_dir, "board.kicad_pcb")
-    pcb_ok = _build_pcb_from_bom(bom, pcb_path, prompt)
+    pcb_ok = _build_pcb_from_bom(bom, pcb_path, prompt, netlist)
 
     if not pcb_ok:
         raise RuntimeError(
